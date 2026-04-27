@@ -4,10 +4,11 @@
   "main": "src/worker.ts",
   "compatibility_date": "2026-04-27",
   "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
   "routes": [
     {
-      "pattern": "*--datetime-brain.omattic.com/*",
-      "zone_name": "omattic.com"
+      "pattern": "main--datetime-component.omattic.com",
+      "custom_domain": true
     }
   ],
   "vars": {
