@@ -1,0 +1,5 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`component/exchange > Currency not founc 1`] = `"Could not find rate for PYY"`;
+
+exports[`component/exchange > Find currency 1`] = `"The exchange rate for PYG (Paraguayan Guaraní) is 7999 per 1 USD"`;

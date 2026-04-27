@@ -1,0 +1,19 @@
+export const event = {
+  Records: [{
+    "messageId": "4f5577fa-b5e6-46de-9fed-8edfb0f95b03",
+    "receiptHandle": "AQEBHiJdBChoTlVeWCleUTgHz4s4/dSf/dV1vdX6GCL4Jtsu7h1QKf0O4QSOiGwcQ1EfJ95G+Q5ZucaPd2j/UCmFEUCjcJ/N/yraESLGourhclFFlfQK3wOB5fL71KnOfyBOqmEiH11pHt18SlK4RmziSIdVEZwf8/0CoIcurC7DjnapW6vN7vskJJJdWPN9XMkurfdVizU+hv6chk+HIQS3NxVnBQEy9x+F4QcUVAKHaVxCLqAxsqlYQlSVCSTQP6uUK9393qVk4BgbnLmPM6/Q9kxAUshRIcuVTYAzx4FEpRE5aeiy1Xc5CDonkyDPRL5Vnk2sUcTKUwoglcYbG2026HNOXe6reRUMXJ3z/2WrCgMQyljgeXD/7vKbam/jvzaTbMRxu/mv2qVqpy0N19/3MA==",
+    "body": "{\"event\":{\"version\":\"2.0\",\"routeKey\":\"ANY /{proxy+}\",\"rawPath\":\"/events\",\"rawQueryString\":\"\",\"headers\":{\"accept\":\"*/*\",\"accept-encoding\":\"gzip,deflate\",\"content-length\":\"954\",\"content-type\":\"application/json\",\"host\":\"rpotential-slack-bot.r.r3js.com\",\"user-agent\":\"Slackbot 1.0 (+https://api.slack.com/robots)\",\"x-amzn-trace-id\":\"Root=1-6807be5b-1d76e0716c6d0d7d672066de\",\"x-forwarded-for\":\"3.238.133.242\",\"x-forwarded-port\":\"443\",\"x-forwarded-proto\":\"https\",\"x-slack-request-timestamp\":\"1745337947\",\"x-slack-signature\":\"v0=91cc4d9b2ac6a0780cb2e3a6dd6f6a29da16dea37fcd711c5b07ad88c5b8cdca\"},\"requestContext\":{\"accountId\":\"122610481075\",\"apiId\":\"yvlp3ngm97\",\"domainName\":\"rpotential-slack-bot.r.r3js.com\",\"domainPrefix\":\"rpotential-slack-bot\",\"http\":{\"method\":\"POST\",\"path\":\"/events\",\"protocol\":\"HTTP/1.1\",\"sourceIp\":\"3.238.133.242\",\"userAgent\":\"Slackbot 1.0 (+https://api.slack.com/robots)\"},\"requestId\":\"JbquXhS9oAMEJyw=\",\"routeKey\":\"ANY /{proxy+}\",\"stage\":\"$default\",\"time\":\"22/Apr/2025:16:05:47 +0000\",\"timeEpoch\":1745337947545},\"pathParameters\":{\"proxy\":\"events\"},\"body\":\"{\\\"token\\\":\\\"SyBMUZ4xNQU5M7qgZ4MgagTl\\\",\\\"team_id\\\":\\\"T08MM3PTRHA\\\",\\\"context_team_id\\\":\\\"T08MM3PTRHA\\\",\\\"context_enterprise_id\\\":null,\\\"api_app_id\\\":\\\"A08MV9NCLP3\\\",\\\"event\\\":{\\\"user\\\":\\\"U08MM3PTRJ8\\\",\\\"type\\\":\\\"message\\\",\\\"ts\\\":\\\"1745337946.203899\\\",\\\"client_msg_id\\\":\\\"dceb098f-e804-4418-bcb6-0320e4b0f31c\\\",\\\"text\\\":\\\"sup bro!\\\",\\\"team\\\":\\\"T08MM3PTRHA\\\",\\\"thread_ts\\\":\\\"1745337367.517569\\\",\\\"parent_user_id\\\":\\\"U08MMTK887M\\\",\\\"blocks\\\":[{\\\"type\\\":\\\"rich_text\\\",\\\"block_id\\\":\\\"rMo1H\\\",\\\"elements\\\":[{\\\"type\\\":\\\"rich_text_section\\\",\\\"elements\\\":[{\\\"type\\\":\\\"text\\\",\\\"text\\\":\\\"sup bro!\\\"}]}]}],\\\"channel\\\":\\\"D08MMTK9FQT\\\",\\\"event_ts\\\":\\\"1745337946.203899\\\",\\\"channel_type\\\":\\\"im\\\"},\\\"type\\\":\\\"event_callback\\\",\\\"event_id\\\":\\\"Ev08NRN8BQQP\\\",\\\"event_time\\\":1745337946,\\\"authorizations\\\":[{\\\"enterprise_id\\\":null,\\\"team_id\\\":\\\"T08MM3PTRHA\\\",\\\"user_id\\\":\\\"U08MMTK887M\\\",\\\"is_bot\\\":true,\\\"is_enterprise_install\\\":false}],\\\"is_ext_shared_channel\\\":false,\\\"event_context\\\":\\\"4-eyJldCI6Im1lc3NhZ2UiLCJ0aWQiOiJUMDhNTTNQVFJIQSIsImFpZCI6IkEwOE1WOU5DTFAzIiwiY2lkIjoiRDA4TU1USzlGUVQifQ\\\"}\",\"isBase64Encoded\":false}}",
+    "attributes": {
+      "ApproximateReceiveCount": "1",
+      "AWSTraceHeader": "Root=1-6807be5b-026a2af245f3438442fadfc0;Parent=15e51a9670abffe6;Sampled=1;Lineage=1:41f8241f:0",
+      "SentTimestamp": "1745337948624",
+      "SenderId": "AROARZDBHO6Z6ACFX4ONF:slack-bot-rpotential-api",
+      "ApproximateFirstReceiveTimestamp": "1745337948634"
+    },
+    "messageAttributes": {},
+    "md5OfBody": "883473753eea01ef442000ef897aebc2",
+    "eventSource": "aws:sqs",
+    "eventSourceARN": "arn:aws:sqs:us-east-1:122610481075:rpotential-slack-bot-slack",
+    "awsRegion": "us-east-1"
+  }]
+}

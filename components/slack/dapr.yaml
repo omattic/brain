@@ -1,0 +1,19 @@
+version: 1
+common:
+  resourcesPath: ./components/
+apps:
+  - appID: brain-slack-api
+    appDirPath: ./src/
+    appPort: 5004
+    command: ["tsx", "app.ts"]
+    env:
+      BRANCH_NAME: "rpotential"
+      DEPLOYMENT_BUCKET: "r3js-deployment-bucket-us-east-1"
+      BUCKET_NAME: "rpotential-storage"
+      OPENAI_API_KEY: "REPLACE_ME"
+      SLACK_BOT_TOKEN: "REPLACE_ME"
+      SLACK_APP_TOKEN: "REPLACE_ME"
+      SLACK_SIGNING_SECRET: "REPLACE_ME"
+      AWS_ACCOUNT: "122610481075"
+      ADMIN_CHANNEL: "C08MMT6JHHR"
+      DAPR_PUBSUB_NAME: "slackpubsub"

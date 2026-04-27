@@ -1,0 +1,22 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`middleware/handleReactions > Should finish 1`] = `
+{
+  "item": {
+    "channel": "C123456",
+    "ts": "1234567890.123456",
+  },
+  "reaction": "robot",
+  "type": "reaction_added",
+}
+`;
+
+exports[`middleware/handleReactions > 👀 Should transform into message replay 1`] = `
+{
+  "channel": "C123456",
+  "channel_type": "unk",
+  "event_ts": "1234567890.123456",
+  "text": "Hello world",
+  "ts": "1234567890.123456",
+}
+`;

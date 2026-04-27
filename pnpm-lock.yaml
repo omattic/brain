@@ -263,6 +263,94 @@ importers:
         specifier: ^1.0.0
         version: 1.6.1(@types/node@18.19.130)
 
+  components/slack:
+    dependencies:
+      '@aws-sdk/client-s3':
+        specifier: ^3.787.0
+        version: 3.1038.0
+      '@aws-sdk/client-sqs':
+        specifier: ^3.787.0
+        version: 3.1038.0
+      '@slack/bolt':
+        specifier: ^4.2.1
+        version: 4.7.1(@types/express@5.0.6)(debug@4.4.3)
+      '@slack/types':
+        specifier: ^2.14.0
+        version: 2.20.1
+      '@slack/web-api':
+        specifier: ^7.9.1
+        version: 7.15.1(debug@4.4.3)
+      aws-xray-sdk-core:
+        specifier: ^3.10.3
+        version: 3.12.0
+      body-parser:
+        specifier: ^2.2.0
+        version: 2.2.2
+      brain-sdk:
+        specifier: workspace:*
+        version: link:../../packages/brain-sdk
+      chalk:
+        specifier: ^5.4.1
+        version: 5.6.2
+      dotenv:
+        specifier: ^16.0.3
+        version: 16.6.1
+      express:
+        specifier: ^5.1.0
+        version: 5.2.1
+      mime-types:
+        specifier: ^3.0.1
+        version: 3.0.2
+      node-fetch:
+        specifier: ^3.3.2
+        version: 3.3.2
+      openai:
+        specifier: ^4.0.0
+        version: 4.104.0(ws@8.20.0)
+      serverless-plugin-tracing:
+        specifier: ^2.0.0
+        version: 2.0.0
+      tsconfig-paths:
+        specifier: ^4.2.0
+        version: 4.2.0
+      vite-tsconfig-paths:
+        specifier: ^5.1.4
+        version: 5.1.4(typescript@5.9.3)(vite@5.4.21(@types/node@18.19.130))
+    devDependencies:
+      '@esbuild-plugins/node-resolve':
+        specifier: ^0.2.2
+        version: 0.2.2(esbuild@0.25.12)
+      '@serverless/typescript':
+        specifier: ^4.11.1
+        version: 4.30.0
+      '@types/node':
+        specifier: ^18.15.0
+        version: 18.19.130
+      '@vitest/coverage-v8':
+        specifier: ^1.0.0
+        version: 1.6.1(vitest@1.6.1(@types/node@18.19.130))
+      esbuild:
+        specifier: ^0.25.2
+        version: 0.25.12
+      serverless-domain-manager:
+        specifier: ^8.0.0
+        version: 8.0.0(serverless@4.34.0)
+      serverless-esbuild:
+        specifier: ^1.55.0
+        version: 1.57.1(esbuild@0.25.12)
+      ts-node:
+        specifier: ^10.9.2
+        version: 10.9.2(@types/node@18.19.130)(typescript@5.9.3)
+      tsx:
+        specifier: ^4.19.3
+        version: 4.21.0
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.0.0
+        version: 1.6.1(@types/node@18.19.130)
+
   components/support:
     dependencies:
       '@aws-sdk/client-s3':

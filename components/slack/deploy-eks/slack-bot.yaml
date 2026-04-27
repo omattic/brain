@@ -1,0 +1,104 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: brain-slack
+  labels:
+    app: brain-slack
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: brain-slack
+  template:
+    metadata:
+      labels:
+        app: brain-slack
+      annotations:
+        dapr.io/enabled: "true"
+        dapr.io/app-id: "brain-slack"
+        dapr.io/app-port: "5001"
+        dapr.io/enable-api-logging: "true"
+    spec:
+      containers:
+      - name: brain-slack
+        image: daprinfra.azurecr.io/brain-slack:837
+        env:
+        - name: DAPR_HTTP_PORT
+          value: "3500"
+        - name: DAPR_HOST
+          value: "http://localhost"
+        - name: APP_PORT
+          value: "5001"
+        - name: BRANCH_NAME
+          value: "rpotential"
+        - name: DEPLOYMENT_BUCKET
+          value: "r3js-deployment-bucket-us-east-1"
+        - name: BUCKET_NAME
+          value: "rpotential-storage"
+        - name: OPENAI_API_KEY
+          value: "REPLACE_ME"
+        - name: SLACK_BOT_TOKEN
+          value: "REPLACE_ME"
+        - name: SLACK_APP_TOKEN
+          value: "REPLACE_ME"
+        - name: SLACK_SIGNING_SECRET
+          value: "REPLACE_ME"
+        - name: AWS_ACCOUNT
+          value: "122610481075"
+        - name: ADMIN_CHANNEL
+          value: "C08V0MEH6CE"
+        - name: DAPR_PUBSUB_NAME
+          value: "slackpubsub"
+          
+        ports:
+        - containerPort: 5001
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5001
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5001
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        imagePullPolicy: Always
+---
+# Service for exposing the slack-bot internally
+apiVersion: v1
+kind: Service
+metadata:
+  name: brain-slack-service
+  labels:
+    app: brain-slack
+spec:
+  selector:
+    app: brain-slack
+  ports:
+  - port: 80
+    targetPort: 5001
+    protocol: TCP
+    name: http
+  type: ClusterIP
+---
+# Load Balancer Service for exposing the slack-bot externally (Azure compatible, HTTP only)
+apiVersion: v1
+kind: Service
+metadata:
+  name: brain-slack-lb
+  labels:
+    app: brain-slack
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: brain-slack.rpotential.dev
+    external-dns.alpha.kubernetes.io/ttl: "60" # 1 minute TTL
+spec:
+  selector:
+    app: brain-slack
+  ports:
+  - port: 80
+    targetPort: 5001
+    protocol: TCP
+    name: http
+  type: LoadBalancer

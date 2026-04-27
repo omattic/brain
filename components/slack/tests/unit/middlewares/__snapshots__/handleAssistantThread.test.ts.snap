@@ -1,0 +1,28 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`middleware/handleAssistantThread > Handle assistant thread 1`] = `
+{
+  "assistant_thread": {
+    "channel_id": "C123456",
+    "context": {
+      "channel_id": "C123456",
+      "enterprise_id": null,
+      "team_id": "T123456",
+    },
+    "thread_ts": "1234567890.123456",
+    "user_id": "U123456",
+  },
+  "type": "assistant_thread_context_changed",
+}
+`;
+
+exports[`middleware/handleAssistantThread > Ignore, not an assistant thread 1`] = `
+{
+  "item": {
+    "channel": "C123456",
+    "ts": "1234567890.123456",
+  },
+  "reaction": "eyes",
+  "type": "reaction_added",
+}
+`;

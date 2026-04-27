@@ -1,0 +1,31 @@
+# This StorageClass manifest defines a default storage class using AWS EBS gp3 volumes.
+# Apply this manifest after cluster creation to ensure a default StorageClass is available
+# that matches the node volume type (when using --node-volume-type gp3).
+# 
+# Usage: kubectl apply -f gp3-default-storageclass.yaml
+#
+# This prevents PersistentVolumeClaims from getting stuck in Pending state when they
+# don't explicitly specify a StorageClass.
+
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: gp3
+  annotations:
+    # This annotation makes this StorageClass the default for PVCs that don't specify a StorageClass
+    storageclass.kubernetes.io/is-default-class: "true"
+parameters:
+  # Specify gp3 as the EBS volume type
+  type: gp3
+  # Use ext4 as the filesystem type
+  fsType: ext4
+  # Optional: Uncomment and modify these parameters to customize gp3 volumes
+  # iops: "3000"      # Default is 3000
+  # throughput: "125" # Default is 125 MiB/s
+provisioner: kubernetes.io/aws-ebs
+# Delete policy means the PV will be deleted when the PVC is deleted
+reclaimPolicy: Delete
+# WaitForFirstConsumer delays volume binding until a pod uses the PVC
+# This ensures volumes are created in the same availability zone as the pod
+volumeBindingMode: WaitForFirstConsumer
+

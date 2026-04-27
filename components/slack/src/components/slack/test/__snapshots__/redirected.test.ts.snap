@@ -1,0 +1,5 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`component/slack > should send redirected message to custom bus 1`] = `null`;
+
+exports[`component/slack > should send redirected message to custom bus 2`] = `null`;

@@ -1,0 +1,26 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`component/openai > openai.chat.completions.create should return a response and send it to Slack 1`] = `
+{
+  "fnName": "postMessage",
+  "params": {
+    "text": "@carlos: Absolutely! Here's the summary again:
+
+### **New Org Priorities:**
+1. **Streamline Hiring**: Adjust Q3 plans, notably cutting App Support Eng roles.
+2. **Pilot Automation**: Implement Agentforce pilots in Finance, App Support, and PMO.
+3. **Upskill Workforce**: Reskill PMs, Finance, and IT cohorts via Akkodis Academy and LHH.
+
+### **Open Gaps:**
+- **Agent Governance**: Need alignment on prompts and KPIs between IT and business leaders.
+- **Tariff Risk Mitigation**: Balance hiring adjustments while maintaining workforce flexibility.
+
+### **Proposed Governance Cadence:**
+- **Weekly Check-ins**: Review agent performance and governance with IT and business leads.
+- **Monthly Strategy Sessions**: Assess automation impacts and workforce shifts.
+- **Quarterly Reviews**: Evaluate progress against organizational goals.
+
+Let's keep the momentum going! :muscle: :lightbulb:",
+  },
+}
+`;

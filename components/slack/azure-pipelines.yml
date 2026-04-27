@@ -1,0 +1,29 @@
+trigger:
+- main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  imageName: 'slack-bot'
+
+steps:
+
+- task: Docker@2
+  inputs:
+    command: 'buildAndPush'
+    repository: '$(imageName)'
+    dockerfile: '**/Dockerfile'
+    containerRegistry: rPotentialACRDaprInfraConn
+    tags: |
+      $(Build.BuildId)
+
+- task: KubernetesManifest@1
+  displayName: Deploy
+  inputs:
+    kubernetesServiceConnection: rPotentialAKSDaprClusterConn
+    namespace: default
+    manifests: |
+      deploy-eks/slack-bot.yaml
+    containers: |
+      daprinfra.azurecr.io/$(imageName):$(Build.BuildId)
