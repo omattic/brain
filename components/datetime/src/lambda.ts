@@ -1,7 +1,20 @@
 // import { processSlackEvent } from "@middlewares/slackHandler";
 import { sendToBus } from "brain-sdk";
-import { updateInteractiveMessage } from "@services/slack";
 import { parse } from 'querystring'
+
+async function updateInteractiveMessage(responseUrl: string, text: string, blocks: any[]) {
+  await fetch(responseUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      replace_original: true,
+      text,
+      blocks,
+    }),
+  });
+}
 
 // AWSXRay.captureHTTPsGlobal(require('http'));
 // AWSXRay.captureHTTPsGlobal(require('https'));

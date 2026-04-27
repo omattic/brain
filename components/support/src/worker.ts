@@ -4,7 +4,7 @@ import {
   CloudflareQueueLike,
   daprize,
 } from 'brain-sdk';
-import { run } from './components/datetime/index';
+import { run } from './components/support/index';
 import { webhook, interactivity, menu } from './lambda';
 
 declare const Response: any;
@@ -105,10 +105,10 @@ export default {
       return new Response('OK');
     }
 
-    return new Response('datetime worker ready');
+    return new Response('support worker ready');
   },
 
-  async queue(batch: unknown, env: Env, _ctx: unknown) {
+  async queue(batch: unknown, env: Env) {
     configureCloudflareRuntime(env);
     const handler = daprize(run);
     await handler(batch);

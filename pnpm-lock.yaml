@@ -92,6 +92,9 @@ importers:
       vitest:
         specifier: ^1.0.0
         version: 1.6.1(@types/node@18.19.130)
+      wrangler:
+        specifier: ^4.13.2
+        version: 4.85.0
 
   components/datetime:
     dependencies:
@@ -262,6 +265,9 @@ importers:
       vitest:
         specifier: ^1.0.0
         version: 1.6.1(@types/node@18.19.130)
+      wrangler:
+        specifier: ^4.13.2
+        version: 4.85.0
 
   components/slack:
     dependencies:
@@ -350,6 +356,9 @@ importers:
       vitest:
         specifier: ^1.0.0
         version: 1.6.1(@types/node@18.19.130)
+      wrangler:
+        specifier: ^4.13.2
+        version: 4.85.0
 
   components/support:
     dependencies:
@@ -435,6 +444,9 @@ importers:
       vitest:
         specifier: ^1.0.0
         version: 1.6.1(@types/node@18.19.130)
+      wrangler:
+        specifier: ^4.13.2
+        version: 4.85.0
 
   components/twilio:
     dependencies:
@@ -514,6 +526,9 @@ importers:
       vitest:
         specifier: ^1.0.0
         version: 1.6.1(@types/node@18.19.130)
+      wrangler:
+        specifier: ^4.13.2
+        version: 4.85.0
 
   packages/brain-sdk:
     dependencies:

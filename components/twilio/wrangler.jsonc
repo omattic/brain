@@ -1,17 +1,18 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
-  "name": "brain-datetime",
+  "name": "brain-twilio",
   "main": "src/worker.ts",
   "compatibility_date": "2026-04-27",
   "compatibility_flags": ["nodejs_compat"],
   "routes": [
     {
-      "pattern": "*--datetime-brain.omattic.com/*",
+      "pattern": "*--twilio-brain.omattic.com/*",
       "zone_name": "omattic.com"
     }
   ],
   "vars": {
-    "BRANCH": "main"
+    "BRANCH": "main",
+    "COMPONENT": "twilio"
   },
   "r2_buckets": [
     {
@@ -30,11 +31,11 @@
     ],
     "consumers": [
       {
-        "queue": "brain-datetime",
+        "queue": "brain-twilio",
         "max_batch_size": 1,
         "max_batch_timeout": 1,
         "max_retries": 3,
-        "dead_letter_queue": "brain-datetime-dlq"
+        "dead_letter_queue": "brain-twilio-dlq"
       }
     ]
   }

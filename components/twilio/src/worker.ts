@@ -4,8 +4,8 @@ import {
   CloudflareQueueLike,
   daprize,
 } from 'brain-sdk';
-import { run } from './components/datetime/index';
-import { webhook, interactivity, menu } from './lambda';
+import { run } from './components/twilio/index';
+import { webhook } from './lambda';
 
 declare const Response: any;
 declare const URL: any;
@@ -31,6 +31,7 @@ function configureCloudflareRuntime(env: Env) {
     }
 
     process.env.BRANCH = process.env.BRANCH || 'main';
+    process.env.COMPONENT = process.env.COMPONENT || 'twilio';
   }
 
   configureRuntime({
@@ -87,28 +88,19 @@ export default {
   async fetch(request: any, env: Env) {
     configureCloudflareRuntime(env);
     const url = new URL(request.url);
-    const event = await toLambdaEvent(request);
 
     if (url.pathname === '/webhook') {
-      return fromLambdaResponse(await webhook(event, {}));
-    }
-
-    if (url.pathname === '/interactivity') {
-      return fromLambdaResponse(await interactivity(event, {}));
-    }
-
-    if (url.pathname === '/menu' || url.pathname === '/menus') {
-      return fromLambdaResponse(await menu(event, {}));
+      return fromLambdaResponse(await webhook(await toLambdaEvent(request), {}));
     }
 
     if (url.pathname === '/health') {
       return new Response('OK');
     }
 
-    return new Response('datetime worker ready');
+    return new Response('twilio worker ready');
   },
 
-  async queue(batch: unknown, env: Env, _ctx: unknown) {
+  async queue(batch: unknown, env: Env) {
     configureCloudflareRuntime(env);
     const handler = daprize(run);
     await handler(batch);

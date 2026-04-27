@@ -1,12 +1,12 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
-  "name": "brain-datetime",
+  "name": "brain-support",
   "main": "src/worker.ts",
   "compatibility_date": "2026-04-27",
   "compatibility_flags": ["nodejs_compat"],
   "routes": [
     {
-      "pattern": "*--datetime-brain.omattic.com/*",
+      "pattern": "*--support-brain.omattic.com/*",
       "zone_name": "omattic.com"
     }
   ],
@@ -30,11 +30,11 @@
     ],
     "consumers": [
       {
-        "queue": "brain-datetime",
+        "queue": "brain-support",
         "max_batch_size": 1,
         "max_batch_timeout": 1,
         "max_retries": 3,
-        "dead_letter_queue": "brain-datetime-dlq"
+        "dead_letter_queue": "brain-support-dlq"
       }
     ]
   }
