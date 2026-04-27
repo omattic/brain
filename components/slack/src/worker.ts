@@ -6,6 +6,7 @@ import {
 } from 'brain-sdk';
 import { run } from './components/slack/index';
 import { webhook, interactivity, menu } from './lambda';
+import { isSlackConfigured } from './services/slack';
 
 declare const Response: any;
 declare const URL: any;
@@ -86,6 +87,9 @@ function fromLambdaResponse(result: any) {
 export default {
   async fetch(request: any, env: Env) {
     configureCloudflareRuntime(env);
+    if (!isSlackConfigured()) {
+      return new Response('slack worker skipped: missing Slack secrets', { status: 204 });
+    }
     const url = new URL(request.url);
     const event = await toLambdaEvent(request);
 
@@ -110,6 +114,10 @@ export default {
 
   async queue(batch: unknown, env: Env) {
     configureCloudflareRuntime(env);
+    if (!isSlackConfigured()) {
+      console.warn("Skipping slack queue batch because Slack secrets are not configured");
+      return;
+    }
     const handler = daprize(run);
     await handler(batch);
   },

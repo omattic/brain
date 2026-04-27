@@ -24,6 +24,10 @@ type TwilioSMS = {
 
 export async function run(event: TwilioSMS,) {
   console.log(`👾 ${process.env.COMPONENT} -> run`, JSON.stringify(event, null, 2))
+  if (!process.env.SLACK_SMS_CHANNEL) {
+    console.warn("Skipping twilio run because SLACK_SMS_CHANNEL is not configured");
+    return;
+  }
 
   let twillioSms = event as TwilioSMS
 
@@ -38,7 +42,7 @@ export async function run(event: TwilioSMS,) {
     },
     context: {
       state: {
-        channelId: process.env.SLACK_SMS_CHANNEL || "C08HN72LSDD",
+        channelId: process.env.SLACK_SMS_CHANNEL,
       }
     }
   })

@@ -1,4 +1,4 @@
-import { postMessage, restoreIds } from "@services/slack";
+import { isSlackConfigured, postMessage, restoreIds } from "@services/slack";
 import { daprize, put } from "brain-sdk"
 import { markdownToSlack } from "@utils/markdown";
 import { processSlackEvent } from "@middlewares/slackHandler";
@@ -16,6 +16,10 @@ export type SlackComponentEvent = {
 
 export async function run(event: SlackComponentEvent, context: any) {
   console.log("run -> event", JSON.stringify(event, null, 2))
+  if (!isSlackConfigured()) {
+    console.warn("Skipping slack run because Slack secrets are not configured");
+    return null;
+  }
   // return AWSXRay.captureAsyncFunc('SlackComponent', async (segment) => {
   let result = null;
   try {

@@ -40,6 +40,14 @@ let AppInit = {
   // socketMode: false
 }
 
+export function isSlackConfigured() {
+  return Boolean(
+    process.env.SLACK_BOT_TOKEN &&
+    process.env.SLACK_APP_TOKEN &&
+    process.env.SLACK_SIGNING_SECRET
+  );
+}
+
 // if (process.env.USE_WEBSOCKETS) {
 //   AppInit.socketMode = true
 // }
@@ -48,7 +56,16 @@ let AppInit = {
 //   AppInit.token = process.env.SLACK_BOT_TOKEN
 // } 
 
-export const app = new App(AppInit);
+export const app = isSlackConfigured() ? new App(AppInit) : ({ client: null } as any);
+
+function getClient() {
+  if (!app.client) {
+    console.warn("Slack client is unavailable because Slack secrets are not configured");
+    return null;
+  }
+
+  return app.client;
+}
 
 export async function updateInteractiveMessage(response_url: string, text: string, blocks?: any[]) {
   try {
@@ -76,8 +93,12 @@ export async function updateInteractiveMessage(response_url: string, text: strin
 }
 
 export async function getMessageByTs(channelId: string, ts: string): Promise<GenericMessageEvent | null> {
+  const client = getClient();
+  if (!client) {
+    return null;
+  }
   try {
-    const result = await app.client.conversations.history({
+    const result = await client.conversations.history({
       channel: channelId,
       latest: ts,
       inclusive: true,
@@ -235,8 +256,12 @@ export async function getDocsAndConfig(channelId: string): Promise<ParsedTextAnd
 }
 
 export async function getChannelDocuments(channelId: string): Promise<SlackChannelDocument[]> {
+  const client = getClient();
+  if (!client) {
+    return [];
+  }
   try {
-    const result = await app.client.files.list({
+    const result = await client.files.list({
       channel: channelId,
       types: "spaces",
     })
@@ -330,8 +355,12 @@ export async function getHistory(context: MiddlewarePayload) {
 }
 
 export async function getSlackChannelHistory(channelId) {
+  const client = getClient();
+  if (!client) {
+    return { messages: [] };
+  }
   try {
-    const result = await app.client.conversations.history({
+    const result = await client.conversations.history({
       channel: channelId.toUpperCase(),
     });
 
@@ -346,8 +375,12 @@ export async function getSlackChannelHistory(channelId) {
 }
 
 export async function getSlackThreadHistory(channelId, threadTs): Promise<ConversationsRepliesResponse> {
+  const client = getClient();
+  if (!client) {
+    return { messages: [] } as ConversationsRepliesResponse;
+  }
   try {
-    const result = await app.client.conversations.replies({
+    const result = await client.conversations.replies({
       channel: channelId,
       ts: threadTs,
     }) as ConversationsRepliesResponse
@@ -372,6 +405,10 @@ export async function postMessage(
 
   text = text || ""
   channelId = channelId.replace("#", "")
+  const client = getClient();
+  if (!client) {
+    return null;
+  }
 
   try {
     let payload = {
@@ -411,7 +448,7 @@ export async function postMessage(
       // payload.as_user = username
     }
 
-    const result = await app.client.chat.postMessage(payload as any);
+    const result = await client.chat.postMessage(payload as any);
     return result;
   }
   catch (error) {
@@ -421,8 +458,12 @@ export async function postMessage(
 
 
 export async function deleteMessage(channel_id, ts) {
+  const client = getClient();
+  if (!client) {
+    return;
+  }
   try {
-    await app.client.chat.delete({
+    await client.chat.delete({
       channel: channel_id,
       ts: ts
     });
@@ -443,11 +484,16 @@ export async function setStatus(channel_id, status, thread_ts) {
     return
   }
 
+  const client = getClient();
+  if (!client) {
+    return;
+  }
+
   // https://api.slack.com/methods/assistant.threads.setStatus
   try {
 
     // Call the chat.postMessage method using the built-in WebClient
-    const result = await app.client.assistant.threads.setStatus({
+    const result = await client.assistant.threads.setStatus({
       status,
       channel_id,
       thread_ts
@@ -462,9 +508,13 @@ export async function setStatus(channel_id, status, thread_ts) {
 }
 
 export async function setTitle(channel_id, title, thread_ts) {
+  const client = getClient();
+  if (!client) {
+    return;
+  }
   // https://api.slack.com/methods/assistant.threads.setStatus
   try {
-    await app.client.assistant.threads.setTitle({
+    await client.assistant.threads.setTitle({
       title,
       channel_id,
       thread_ts
@@ -476,9 +526,13 @@ export async function setTitle(channel_id, title, thread_ts) {
 }
 // let channelNameToId = {} as { [key: string]: string }
 export async function getChannelName(channelId, context: MiddlewarePayload): Promise<string> {
+  const client = getClient();
+  if (!client) {
+    return "Unknown";
+  }
   // https://api.slack.com/methods/conversations.info
   try {
-    const result = await app.client.conversations.info({
+    const result = await client.conversations.info({
       channel: channelId
     })
     context.state.channelNameToId = context.state.channelNameToId || {}
@@ -501,13 +555,17 @@ function getChannelId(channelName: string, context: MiddlewarePayload): string {
 
 
 export async function addEmojiReaction(channelId, ts, emoji) {
+  const client = getClient();
+  if (!client) {
+    return { error: "Slack client unavailable" };
+  }
   // https://api.slack.com/methods/reactions.add
   try {
     // Remove colons from the emoji name if they exist
     const cleanEmoji = emoji.replace(/:/g, '');
 
     // Call the chat.postMessage method using the built-in WebClient
-    await app.client.reactions.add({
+    await client.reactions.add({
       channel: channelId,
       timestamp: ts,
       name: cleanEmoji,
@@ -531,9 +589,13 @@ export function getUserId(username: string, context: MiddlewarePayload): string 
 }
 
 export async function getUserInfo(user_id, context: MiddlewarePayload): Promise<string> {
+  const client = getClient();
+  if (!client) {
+    return "Unknown User Info";
+  }
   // https://api.slack.com/methods/users.info
   try {
-    const result = await app.client.users.info({
+    const result = await client.users.info({
       user: user_id
     })
 

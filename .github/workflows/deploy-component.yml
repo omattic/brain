@@ -43,5 +43,10 @@ jobs:
       - name: Build brain-sdk
         run: pnpm --filter brain-sdk build
 
+      - name: Validate Cloudflare secrets
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+
       - name: Deploy Worker
-        run: pnpm --dir ${{ inputs.component_path }} deploy
+        run: pnpm --dir ${{ inputs.component_path }} run deploy

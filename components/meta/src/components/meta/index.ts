@@ -11,6 +11,15 @@ type BridgeEvent = {
   }
 }
 
+function isMetaConfigured() {
+  return Boolean(
+    process.env.INSTAGRAM_ACCESS_TOKEN ||
+    process.env.INSTAGRAM_ACCESS_TOKEN_CARLOS ||
+    process.env.INSTAGRAM_ACCESS_TOKEN_INGLESCONLIZA ||
+    process.env.CLOUD_API_ACCESS_TOKEN
+  );
+}
+
 // type ICLWebhookAttachment = {
 //   type: string,
 //   url: string,
@@ -30,6 +39,10 @@ type BridgeEvent = {
 
 export async function run(event: any, context: any) {
   console.log("👾 meta -> run", JSON.stringify(event, null, 2))
+  if (!isMetaConfigured()) {
+    console.warn("Skipping meta run because no Meta runtime secrets are configured");
+    return;
+  }
   if (event.fnName) {
 
     console.log("GOT fnName!")

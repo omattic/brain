@@ -64,6 +64,10 @@ async function sendResponse(text: string, context: any) {
 
 export async function run(event: OpenAIComponentEvent, context: any) {
   console.log("👾 openai -> run", JSON.stringify(event, null, 2))
+  if (!process.env.OPENAI_API_KEY) {
+    console.warn("Skipping brain run because OPENAI_API_KEY is not configured");
+    return;
+  }
   let chatCompletionResponse
   let prompt
   let skipAgent = false
