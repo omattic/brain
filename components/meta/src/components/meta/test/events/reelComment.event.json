@@ -1,0 +1,328 @@
+{
+  "event": {
+    "fnName": "sendDirectMessage",
+    "params": {
+      "text": "¡Hola!  Aquí va tu guía que lo disfrutes.\nhttps://pronuncia.inglesconliza.com/\n​\n¡Promo flash solo por HOY!\n​\nHaz clic aquí:\nhttps://curso.inglesconliza.com/club-de-ingles-con-liza/\n​\n¡Abrazos!"
+    }
+  },
+  "context": {
+    "event": {
+      "subtype": "bot_message",
+      "text": "_Commented on post_ <https://www.instagram.com/reel/DKaCiz4gXmi/|¿Los sabías? Te espero en WhatsApp >:\nComunidad",
+      "username": "olimati.photography",
+      "icons": {
+        "image_48": "https://s3-us-west-2.amazonaws.com/slack-files2/bot_icons/2025-06-05/9007208458372_48.png"
+      },
+      "type": "message",
+      "ts": "1749133204.821179",
+      "bot_id": "B081AM1MACX",
+      "app_id": "A081TNA8XPW",
+      "blocks": [
+        {
+          "type": "rich_text",
+          "block_id": "sIoe",
+          "elements": [
+            {
+              "type": "rich_text_section",
+              "elements": [
+                {
+                  "type": "text",
+                  "text": "Commented on post",
+                  "style": {
+                    "italic": true
+                  }
+                },
+                {
+                  "type": "text",
+                  "text": " "
+                },
+                {
+                  "type": "link",
+                  "url": "https://www.instagram.com/reel/DKaCiz4gXmi/",
+                  "text": "¿Los sabías? Te espero en WhatsApp"
+                },
+                {
+                  "type": "text",
+                  "text": ":\nComunidad"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "channel": "C085CLN4AU8",
+      "event_ts": "1749133204.821179",
+      "channel_type": "group"
+    },
+    "config": {},
+    "state": {
+      "isBotMessage": true,
+      "channelId": "C085CLN4AU8",
+      "eventTs": "1749133204.821179",
+      "isIm": false,
+      "isGroup": false,
+      "messageUsername": "olimati.photography",
+      "incomingMessageText": "_Commented on post_ <https://www.instagram.com/reel/DKaCiz4gXmi/|¿Los sabías? Te espero en WhatsApp >:\nComunidad",
+      "hasBotProfile": false,
+      "channelContext": {
+        "config": {
+          "disableBot": false,
+          "sendToBus": "support",
+          "skipUserHistory": true,
+          "onlyUsernames": true,
+          "onlyThreadHistory": true
+        },
+        "bot": {
+          "text": "Esta comunicación ocurre via instagram, son comentarios públicos, las respuestas deben ser cortas y agradables, con un tono casual, sencillo y humano.\n- Responde de manera breve y clara, usando un tono positivo y accesible que genere una buena impresión pública.\n- Usa emojis y un lenguaje que refleje entusiasmo y cercanía.\n- Si la respuesta requiere más detalles, invita al usuario a escribirte por mensaje privado para continuar la conversación.\nno repitas \"Hola\" si ya se lo dijiste una vez, trata de mantener un hilo coherente entre las comunicaciones y mostrar que te recuerdas de lo que han hablado previamente.\nnunca menciones a ChatGPT, nunca digas que tienes algo que ver con ChatGPT.\nno olvides mencionar al usuario especialmente en el primer mensaje, el que response al comentario.\nSi preguntan sobre costos, diles que con gusto les puedes dar los costos por whatsapp https://inglesconliza.com/whatsapp\nhay comentarios que intentan resolver el reto que está en el contenido del post, ayudarlos a resolverlo.\nRecuerda escribir un mensaje corto directo al comentario mencionando que le dejarás un mensaje a la persona.\nSi el comentario se sale del contexto específico del aprendizaje de inglés, solo di \"AYUDA\"\nSiempre que menciones cualquiera de nuestros productos o eventos (Guia, Semana del Ingles, Club, etc), dále un enlace o una URL para conseguirlo fácilmente.\nenviar la guía a los usuarios que comenten eBook\nno hace falta que envíes dos veces el mensaje, solo una sola vez para cada usuario.\nlos que comenten 10 enviar la guía de los 10 tips para mejorar tu inglés: https://inglesconliza.com/pdf10tips\n\n"
+        },
+        "mech": {
+          "text": "",
+          "title": "[mech] Responses",
+          "json": [
+            {
+              "mech": [
+                "Responses\n"
+              ],
+              "config": [
+                "set parser json\n"
+              ],
+              "hashtags": [
+                "rutina\n"
+              ],
+              "comment": [
+                "Revisa tus mensajes directos para más detalles.\n"
+              ],
+              "dm": [
+                "Prompt para ChatGPT:\n​\nHola, ChatGPT. Estoy buscando ayuda para crear una rutina de estudio de inglés para 1 hora, adaptada para un nivel A2. Me gustaría que incluyas actividades equilibradas que abarquen calentamiento, gramática, vocabulario, lectura, conversación y revisión. También quiero sugerencias de recursos o ejercicios específicos para cada parte de la rutina. ¡Gracias!\nSi quieres avanzar todos los días únete a mi club con esta promo limitada por hoy 👉\nhttps://curso.inglesconliza.com/club-de-ingles-con-liza/?utm_source=metameta&amp;utm_campaign=lettrythis\n"
+              ]
+            },
+            {
+              "hashtags": [
+                "grupo\n"
+              ],
+              "comment": [
+                "Revisa tus mensajes directos para más detalles.\n"
+              ],
+              "dm": [
+                "Aquí tienes el enlace para unirte a mi grupo de WhatsApp: https://inglesconliza.com/comunidad\n¡Nos vemos ahí! 🚀\n"
+              ]
+            },
+            {
+              "hashtags": [
+                "10tips\n"
+              ],
+              "comment": [
+                "¡Gracias por comentar! Revisa tus DMs 💌\n"
+              ],
+              "dm": [
+                "¡Hola! 🤗 Te envío la guía en PDF de las \"10 Tips para hablar en Inglés\":\nAquí tienes el enlace: https://www.inglesconliza.com/pdf10tips solo tienes que poner tu correo electrónico y podrás descargarla.\nPromo limitada por 2 horas: https://curso.inglesconliza.com/club-de-ingles-con-liza/?utm_source=metameta&amp;utm_campaign=lettrythis\n¡Un abrazo! 💕\n"
+              ]
+            },
+            {
+              "hashtags": [
+                "ebook\n"
+              ],
+              "comment": [
+                "¡Enlace del ebook enviado por mensaje privado! 🚀\n",
+                "¡Te lo envié por privado!\n",
+                "Revisa tus DMs! 🚀\n"
+              ],
+              "dm": [
+                "¡Hola! 🤗 Te envío el ebook en PDF de las \"10 Tips para hablar en Inglés\":\nAquí tienes el enlace: https://www.inglesconliza.com/pdf10tips solo tienes que poner tu correo electrónico y podrás descargarla.\nPromo limitada por 2 horas: https://curso.inglesconliza.com/club-de-ingles-con-liza/?utm_source=metameta&amp;utm_campaign=lettrythis\n¡Un abrazo! 💕\n"
+              ]
+            },
+            {
+              "hashtags": [
+                "comunidad\n"
+              ],
+              "comment": [
+                "Te envié el enlace a la comunidad por mensaje directo ☺️\n",
+                "¡Te lo envié por privado!\n",
+                "Revisa tus DMs! 🚀ñlñ\n"
+              ],
+              "dm": [
+                "¿Quieres recibir tips de inglés todos los días, practicar frases reales y mantenerte motivado?\n​\nÚnete gratis a mi comunidad en WhatsApp 📲\n✨ Progress, not perfection.\n​\nComunidad: https://inglesconliza.com/comunidad\n"
+              ]
+            },
+            {
+              "hashtags": [
+                "Running\n"
+              ],
+              "comment": [
+                "Te envié el enlace a la comunidad por mensaje directo ☺️\n",
+                "Check your DMs! 💕\n",
+                "Revisa tus comentarios!\n",
+                "Enviado por mensaje privado!\n"
+              ],
+              "dm": [
+                "¿Quieres recibir tips de inglés todos los días, practicar frases reales y mantenerte motivado/a? Únete gratis a mi comunidad en WhatsApp 📲 Es contenido útil, rápido y directo a tu celular.\n✨ Progress, not perfection.\nComunidad: https://inglesconliza.com/comunidad\n"
+              ]
+            },
+            {
+              "hashtags": [
+                "club\n"
+              ],
+              "comment": [
+                "Te envié el enlace por mensaje directo ☺️\n",
+                "Check your DMs! 💕\n",
+                "Enviado por mensaje privado!\n",
+                "Revisa tus comentarios!\n"
+              ],
+              "dm": [
+                "🚨 ¡Últimos 4 días! ¿Listo/a para transformar tu inglés? Únete al Club y empieza hoy. 👇 ¡No lo dejes pasar!\nHAZ CLIC AQUÍ:  https://curso.inglesconliza.com/club-de-ingles-con-liza/?utm_source=metameta&amp;utm_campaign=lettrythis\n"
+              ]
+            },
+            null,
+            {
+              "hashtags": "default",
+              "comment": "Revisa tus comentarios!",
+              "dm": "¡Hola!  Aquí va tu guía que lo disfrutes.\nhttps://pronuncia.inglesconliza.com/\n​\n¡Promo flash solo por HOY!\n​\nHaz clic aquí:\nhttps://curso.inglesconliza.com/club-de-ingles-con-liza/\n​\n¡Abrazos!"
+            },
+            null,
+            {
+              "end": [],
+              "hashtags": [
+                "restaurante\n"
+              ],
+              "comment": [
+                "¡Enlace del ebook enviado por mensaje privado! 🚀\n",
+                "¡Te lo envié por privado!\n",
+                "Revisa tus DMs! 🚀\n"
+              ],
+              "dm": [
+                "¡Hola! 🤗 Te envío mi audio guía gratuita: https://pronuncia.inglesconliza.com/20-restaurant\n¿Quieres mejorar tu inglés conmigo, te dejo esta promo limitada por 2 horas: https://curso.inglesconliza.com/club-de-ingles-con-liza/?utm_source=metameta&amp;utm_campaign=lettrythis\n¡Un abrazo! 💕\n"
+              ]
+            },
+            null,
+            {
+              "end": [],
+              "hashtags": [
+                "guía guia\n"
+              ],
+              "comment": [
+                "¡Tu guía va en camino! :wink:\n",
+                "tus DMs! :sparkles:\n",
+                "¡Te lo envió por privado! :relaxed:\n"
+              ],
+              "dm": [
+                "¡Hola! :hugging_face: Aquí va tu guía que lo disfrutes.\nhttps://www.inglesconliza.com/guia\n:gift:¡Promo flash! por tiempo limitado por 2 horas: https://curso.inglesconliza.com/club-de-ingles-con-liza/?utm_source=metameta&amp;utm_campaign=lettrythis\n¡Abrazos! :sparkles::two_hearts:\n"
+              ]
+            },
+            null,
+            {
+              "end": [],
+              " hashtags": [
+                "hashtags] 50\n"
+              ],
+              "comment": [
+                "Revisa tus DMs:sparkles:\n",
+                "¡Te lo envío por privado!:smiling_face_with_3_hearts:\n",
+                "¡Tus frases van en camino!:wink:\n"
+              ],
+              "dm": [
+                "¡Hola! Aquí van tus 50 Frases :blush:\nhttps:www.inglesconliza.com/pdf100frases\n:gift: Promo flash! por tiempo limitado por 2 horas: https://curso.inglesconliza.com/club-de-ingles-con-liza/?utm_source=metameta&amp;utm_campaign=lettrythis\n¡Abrazo!:sparkles::hugging_face:\n"
+              ]
+            },
+            null,
+            {
+              "end": [],
+              "hashtags": [
+                "100\n",
+                "cumple\n",
+                "YES\n"
+              ],
+              "comment": [
+                "Te lo envío al DM:sparkles:\n",
+                "Revisa tus DMs:hugging_face:\n",
+                "¡En camino!:gift:\n",
+                "Te lo envío al DM:sparkles:\n",
+                "Revisa tus DMs:hugging_face:\n",
+                "¡En camino!:gift:\n",
+                "¡Tu guía va en camino! :wink:\n",
+                "tus DMs! :sparkles:\n",
+                "¡Te lo envió por privado! :relaxed:\n"
+              ],
+              "dm": [
+                "Hola ¡Aquí va tu regalo con 100 frases! https:wwwinglesconliza.com/pdf100frases\n:gift::sparkles: Promo flash: Por tiempo limitado por 2 horas: https:curso.inglesconliza.com/club-de-ingles-con-liza/?utm_source=metameta&amp;utm_campaign=lettrythis\n¡Abrazo!:sparkles:\n",
+                "Hola, estoy feliz de cumplir años y celebrar 1 año desde el lanzamiento de nuestro club de inglés con Liza y ¡quiero celebrarlo contigo! Te espero en el club.\n:gift::sparkles: Promo flash: Por tiempo limitado por 2 horas: https:curso.inglesconliza.com/club-de-ingles-con-liza/\n",
+                "¡Hola! :hugging_face: Aquí va tu guía que lo disfrutes.\nhttps://www.inglesconliza.com/guia\n:gift:¡Promo flash! por tiempo limitado por 2 horas: https://curso.inglesconliza.com/club-de-ingles-con-liza/?utm_source=metameta&amp;utm_campaign=lettrythis\n¡Abrazos! :sparkles::two_hearts:\n"
+              ],
+              "End": []
+            },
+            null,
+            {
+              "end": [],
+              "hashtags": [
+                "guide\n"
+              ],
+              "comment": [
+                "¡Tu guía va en camino! :wink:\n",
+                "Revisa tus DMs! :sparkles:\n",
+                "¡Te lo envió por privado! :relaxed:\n"
+              ],
+              "dm": [
+                "Hola, ¿cómo estás?  Aquí va tu guía que lo disfrutes.\nhttps://pronuncia.inglesconliza.com\n​\n¡Promo flash solo por HOY!  Haz clic aquí 👉 https://curso.inglesconliza.com/club-de-ingles-con-liza/?utm_source=metameta&amp;utm_campaign=lettrythis\n​\n¡Abrazos!\n"
+              ]
+            },
+            null
+          ]
+        }
+      }
+    },
+    "promises": [],
+    "redirectEvent": {
+      "text": "*Commented on post* [¿Los sabías? Te espero en WhatsApp ](https://www.instagram.com/reel/DKaCiz4gXmi/):\nComunidad",
+      "channel_id": "C085CLN4AU8",
+      "username": "olimati.photography",
+      "payload": {
+        "entry": [
+          {
+            "id": "17841401707784079",
+            "time": 1749133194,
+            "changes": [
+              {
+                "value": {
+                  "from": {
+                    "id": "994946942204389",
+                    "username": "olimati.photography"
+                  },
+                  "media": {
+                    "id": "17984969072687369",
+                    "media_product_type": "REELS"
+                  },
+                  "id": "18128607337440024",
+                  "text": "Comunidad"
+                },
+                "field": "comments"
+              }
+            ]
+          }
+        ],
+        "object": "instagram"
+      },
+      "update_id": "18128607337440024",
+      "useBot": "@taskgptbot",
+      "content": "Comunidad",
+      "userName": "olimati.photography",
+      "userId": "instagram_994946942204389",
+      "change": {
+        "value": {
+          "from": {
+            "id": "994946942204389",
+            "username": "olimati.photography"
+          },
+          "media": {
+            "id": "17984969072687369",
+            "media_product_type": "REELS"
+          },
+          "id": "18128607337440024",
+          "text": "Comunidad"
+        },
+        "field": "comments"
+      },
+      "xid": "X2ZH8",
+      "chatGptMode": "GetCommentAndResponse",
+      "chatGptContext": "These are comments attached to an instagram post with this caption: ¿Los sabías? Te espero en WhatsApp \n\n#comunidad #inglesconliza #aprendeingles #inglés #inglesonline"
+    }
+  }
+}

@@ -1,0 +1,7 @@
+node_modules
+npm-debug.log
+Dockerfile
+.dockerignore
+azure-pipelines.yml
+package-lock.json
+README.md

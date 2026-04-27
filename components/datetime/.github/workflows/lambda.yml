@@ -1,0 +1,55 @@
+name: Deploy to AWS Lambda
+
+on: 
+  push:
+    branches:
+      - lambda
+env:
+  BRANCH_NAME: ${{ secrets.BRANCH_NAME }}
+  AWS_ACCOUNT: ${{ secrets.AWS_ACCOUNT }}
+  BUCKET_NAME: ${{ secrets.BUCKET_NAME }}
+  DEPLOYMENT_BUCKET: ${{ secrets.DEPLOYMENT_BUCKET }}
+  DOMAIN: ${{ secrets.DOMAIN }}
+  COMMIT_SHA: ${{ github.sha }}
+  SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+  SLACK_APP_TOKEN: ${{ secrets.SLACK_APP_TOKEN }}
+  SLACK_SIGNING_SECRET: ${{ secrets.SLACK_SIGNING_SECRET }}
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  ADMIN_CHANNEL: ${{ secrets.ADMIN_CHANNEL }}
+  REGION: ${{ secrets.REGION }}
+
+jobs:
+  deploy:
+    timeout-minutes: 7
+    name: "Serverless Deployment"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      # - uses: actions/setup-node@v4
+      #   with:
+      #     node-version: 20
+      #     cache: 'npm'
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.REGION }}
+
+      - uses: actions/cache@v4
+        id: cache
+        with:
+          path: node_modules
+          key: ${{ hashFiles('pnpm-lock.yaml') }}
+
+      - uses: pnpm/action-setup@v2.1.0
+        if: steps.cache.outputs.cache-hit != 'true'
+        with:
+          version: 8
+
+      - name: Install node_modules
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: pnpm install
+
+      - name: Deploy
+        run: npx serverless@3.26.0 deploy --stage ${{ env.BRANCH_NAME }}

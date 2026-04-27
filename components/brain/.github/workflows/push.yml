@@ -1,0 +1,59 @@
+name: Deploy to AWS Lambda
+
+on: "push"
+
+env:
+  AWS_REGION: us-east-2
+  AWS_ROLE_TO_ASSUME: arn:aws:iam::122610481075:role/GithubActionsDaprRole
+  BRANCH_NAME: r3js
+
+jobs:
+  deploy:
+    timeout-minutes: 7
+    name: "Serverless Deployment"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        # with:
+        #   token: ${{ secrets.GH_PAT }} # Personal Access Token with repo scope
+      # - uses: actions/setup-node@v4
+      #   with:
+      #     node-version: 20
+      #     cache: 'npm'
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        # with:
+        #   role-to-assume: ${{ env.AWS_ROLE_TO_ASSUME }}
+        #   aws-region: ${{ env.AWS_REGION }}
+        #   role-duration-seconds: 3600
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-2
+
+      - uses: actions/cache@v4
+        id: cache
+        with:
+          path: |
+            node_modules
+            ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ github.sha }}
+
+      - uses: pnpm/action-setup@v4
+        if: steps.cache.outputs.cache-hit != 'true'
+        with:
+          version: 8
+
+      - name: Install dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          if [ -n "${{ secrets.GH_PAT }}" ]; then \
+            git config --global url."https://${{ secrets.GH_PAT }}:@github.com/".insteadOf "https://github.com/" && \
+            npm install --registry=https://registry.npmjs.org/ && \
+            git config --global --unset url."https://${{ secrets.GH_PAT }}:@github.com/".insteadOf; \
+          else \
+            npm install --registry=https://registry.npmjs.org/
+          fi
+
+      - name: Deploy
+        run: npx serverless@3.26.0 deploy --stage ${{ env.BRANCH_NAME }}

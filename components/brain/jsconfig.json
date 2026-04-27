@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@components/*": ["./src/components/*"],
+      "@testevents/*": ["./tests/events/*"],
+      "@events/*": ["./tests/events/*"],
+      "@controller/*": ["./src/controller/*"],
+      "@middlewares/*": ["./src/middlewares/*"],
+      "@services/*": ["./src/services/*"],
+      "@tmp/*": ["./src/tmp/*"],
+      "@types/*": ["src/types/*"],
+      "@tests/*": ["tests/*"],
+      "@utils/*": ["src/utils/*"],
+      "@tools": ["src/tools/index"],
+      "@types": ["src/types/index"]
+    }
+  },
+  "exclude": [
+    "node_modules",
+    "**/node_modules/*",
+    ".serverless",
+    ".webpack"
+  ]
+}

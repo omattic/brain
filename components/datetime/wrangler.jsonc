@@ -1,0 +1,37 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "brain-datetime",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-04-27",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "BRANCH": "main"
+  },
+  "r2_buckets": [
+    {
+      "binding": "BRAIN_BUCKET",
+      "bucket_name": "brain-state"
+    }
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "BRAIN_QUEUE",
+        "queue": "brain-brain"
+      },
+      {
+        "binding": "SLACK_QUEUE",
+        "queue": "brain-slack"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "brain-datetime",
+        "max_batch_size": 1,
+        "max_batch_timeout": 1,
+        "max_retries": 3,
+        "dead_letter_queue": "brain-datetime-dlq"
+      }
+    ]
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "brain",
+  "private": true,
+  "packageManager": "pnpm@10.33.2",
+  "scripts": {
+    "build:sdk": "pnpm --filter brain-sdk build",
+    "test:datetime": "pnpm --filter brain-datetime test",
+    "dev:datetime-worker": "pnpm --filter brain-datetime dev:worker"
+  }
+}

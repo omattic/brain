@@ -1,0 +1,11 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`instagramCommentPayload > matchContextWithMechAnswer 1`] = `
+{
+  "comment": "Check your DMs! 💕",
+  "dm": "¿Listo/a para dar el primer paso y empezar a transformar tu futuro con el inglés?¡Únete a mi club y comencemos juntos este increíble viaje! 👇
+Promo limitada por 2 horas: https://curso.inglesconliza.com/club-de-ingles-con-liza/?utm_source=metameta&amp;utm_campaign=lettrythis",
+  "end": undefined,
+  "hashtags": "default",
+}
+`;

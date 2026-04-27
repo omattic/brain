@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: slack-bot-deployment
+  labels:
+    app: slack-bot-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: slack-bot
+  template:
+    metadata:
+      labels:
+        app: slack-bot
+    spec:
+      containers:
+      - name: bot
+        image: rpotentialacrbasic.azurecr.io/slack-bot:30
+        ports:
+        - containerPort: 3000
+        envFrom:
+        - secretRef:
+            name: slack-bot-secret
+          
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: slack-bot-service
+  labels:
+    app: slack-bot-service
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 3000
+    targetPort: 3000
+    protocol: TCP
+  selector:
+    app: slack-bot

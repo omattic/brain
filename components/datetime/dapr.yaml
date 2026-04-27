@@ -1,0 +1,10 @@
+version: 1
+common:
+  resourcesPath: ./components/
+apps:
+  - appID: datetime
+    appDirPath: ./src/
+    appPort: 5004
+    command: ["tsx", "app.ts"]
+    env:
+      DAPR_PUBSUB_NAME: "slackpubsub"

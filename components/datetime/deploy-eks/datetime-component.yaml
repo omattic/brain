@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: datetime
+  labels:
+    app: datetime
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: datetime
+  template:
+    metadata:
+      labels:
+        app: datetime
+      annotations:
+        dapr.io/enabled: "true"
+        dapr.io/app-id: "datetime"
+        dapr.io/app-port: "5002"
+        dapr.io/enable-api-logging: "true"
+    spec:
+      containers:
+      - name: datetime
+        image: 122610481075.dkr.ecr.ca-central-1.amazonaws.com/dapr-datetime:latest
+        env:
+        - name: DAPR_HTTP_PORT
+          value: "3500"
+        - name: DAPR_HOST
+          value: "http://localhost"
+        - name: APP_PORT
+          value: "5002"
+        - name: DAPR_PUBSUB_NAME
+          value: "slackpubsub"
+    
+        ports:
+        - containerPort: 5002
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5002
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5002
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        imagePullPolicy: Always

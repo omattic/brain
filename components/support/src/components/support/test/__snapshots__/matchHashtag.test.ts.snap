@@ -1,0 +1,11 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`matchHashtag > matchHashtag 1`] = `
+{
+  "comment": "Te envié el enlace a la comunidad por mensaje directo ☺️",
+  "dm": "¿Quieres recibir tips de inglés todos los días, practicar frases reales y mantenerte motivado/a? Únete gratis a mi comunidad en WhatsApp 📲 Es contenido útil, rápido y directo a tu celular.
+✨ Progress, not perfection.
+Comunidad: https://inglesconliza.com/comunidad",
+  "hashtags": "inglesconliza inglésconliza",
+}
+`;

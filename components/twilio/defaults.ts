@@ -1,0 +1,8 @@
+process.env.BRANCH_NAME = process.env.BRANCH_NAME || "r3js"
+process.env.AWS_ACCOUNT = "122610481075"
+process.env.DEPLOYMENT_BUCKET = "r3js-deployment-bucket-us-east-2"
+process.env.BUCKET_NAME = "r3js-deployment-bucket-us-east-2"
+process.env.REGION = "us-east-2"
+process.env.BRANCH = process.env.BRANCH_NAME || "r3js"
+process.env.COMPONENT = "twilio"
+process.env.SLACK_SMS_CHANNEL = "C08HN72LSDD"
