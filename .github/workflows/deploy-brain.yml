@@ -1,0 +1,22 @@
+name: Deploy brain
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "components/brain/**"
+      - "packages/brain-sdk/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/deploy-component.yml"
+      - ".github/workflows/deploy-brain.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/deploy-component.yml
+    with:
+      component_name: brain
+      component_path: components/brain
+    secrets: inherit

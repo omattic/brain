@@ -1,0 +1,22 @@
+name: Deploy meta
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "components/meta/**"
+      - "packages/brain-sdk/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/deploy-component.yml"
+      - ".github/workflows/deploy-meta.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/deploy-component.yml
+    with:
+      component_name: meta
+      component_path: components/meta
+    secrets: inherit

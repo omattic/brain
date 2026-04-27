@@ -1,0 +1,22 @@
+name: Deploy twilio
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "components/twilio/**"
+      - "packages/brain-sdk/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/deploy-component.yml"
+      - ".github/workflows/deploy-twilio.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/deploy-component.yml
+    with:
+      component_name: twilio
+      component_path: components/twilio
+    secrets: inherit
