@@ -1,10 +1,13 @@
-import * as tracing from "./tracing";
 import * as bus from "./bus";
 import * as authorize from "./authorize";
 import * as storage from "./storage";
 import * as env from "./env";
 import * as utils from "./utils";
-export declare const AWSXRay: typeof tracing.AWSXRay;
+export declare const AWSXRay: {
+    captureAWSv3Client<T>(client: T): T;
+    captureAsyncFunc<T>(_name: string, fn: () => T): T;
+    getSegment(): null;
+};
 export declare const sendToBus: typeof bus.sendToBus;
 export declare const isAuthorized: typeof authorize.isAuthorized;
 export declare const get: typeof storage.get;
