@@ -103,7 +103,7 @@ export async function menu(event, context) {
   }
 }
 
-if (require.main === module) {
+if (typeof require !== "undefined" && typeof module !== "undefined" && require.main === module) {
   (async () => {
     let event = {
       "version": "2.0",

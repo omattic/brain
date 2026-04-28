@@ -1,4 +1,3 @@
-import { DaprClient, CommunicationProtocolEnum } from '@dapr/dapr';
 import { getDaprHttpPort, getDaprPubSubName, getDaprHost } from '../env';
 
 // Type for Dapr pub/sub response
@@ -9,11 +8,16 @@ export type DaprPublishResponse = {
 };
 
 // Initialize Dapr client for Dapr mode
-let daprClient: DaprClient | null = null;
+let daprClient: any = null;
+
+async function loadDaprModule() {
+  return Function("return import('@dapr/dapr')")() as Promise<any>;
+}
 
 // Lazy initialization of Dapr client to avoid issues during testing or when not needed
-export function getDaprClient(): DaprClient {
+export async function getDaprClient(): Promise<any> {
   if (!daprClient) {
+    const { DaprClient, CommunicationProtocolEnum } = await loadDaprModule();
     daprClient = new DaprClient({
       daprHost: getDaprHost(),
       daprPort: getDaprHttpPort(),
@@ -35,7 +39,7 @@ export async function sendToDapr(
   event: any
 ): Promise<DaprPublishResponse> {
   const pubsubName = getDaprPubSubName();
-  const client = getDaprClient();
+  const client = await getDaprClient();
   
   console.log(`📮 Publishing to Dapr pub/sub '${pubsubName}', topic: ${topicName}`, JSON.stringify(event, null, 2));
   

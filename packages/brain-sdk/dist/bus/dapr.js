@@ -2,17 +2,20 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getDaprClient = getDaprClient;
 exports.sendToDapr = sendToDapr;
-const dapr_1 = require("@dapr/dapr");
 const env_1 = require("../env");
 // Initialize Dapr client for Dapr mode
 let daprClient = null;
+async function loadDaprModule() {
+    return Function("return import('@dapr/dapr')")();
+}
 // Lazy initialization of Dapr client to avoid issues during testing or when not needed
-function getDaprClient() {
+async function getDaprClient() {
     if (!daprClient) {
-        daprClient = new dapr_1.DaprClient({
+        const { DaprClient, CommunicationProtocolEnum } = await loadDaprModule();
+        daprClient = new DaprClient({
             daprHost: (0, env_1.getDaprHost)(),
             daprPort: (0, env_1.getDaprHttpPort)(),
-            communicationProtocol: dapr_1.CommunicationProtocolEnum.HTTP,
+            communicationProtocol: CommunicationProtocolEnum.HTTP,
         });
     }
     return daprClient;
@@ -26,7 +29,7 @@ function getDaprClient() {
  */
 async function sendToDapr(topicName, event) {
     const pubsubName = (0, env_1.getDaprPubSubName)();
-    const client = getDaprClient();
+    const client = await getDaprClient();
     console.log(`📮 Publishing to Dapr pub/sub '${pubsubName}', topic: ${topicName}`, JSON.stringify(event, null, 2));
     try {
         // Publish to Dapr pub/sub

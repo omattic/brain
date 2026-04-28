@@ -84,7 +84,7 @@ export function microHash(input: string): string {
 }
 
 
-if (require.main === module) {
+if (typeof require !== "undefined" && typeof module !== "undefined" && require.main === module) {
   (async () => {
     // console.log(microHash('i:17841401707784079'))
 

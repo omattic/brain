@@ -1,11 +1,10 @@
-import { DaprClient } from '@dapr/dapr';
 import { GetOptions } from '../storage';
 export type DaprStateResponse = {
     success: boolean;
     key?: string;
     [key: string]: any;
 };
-export declare function getDaprClient(): DaprClient;
+export declare function getDaprClient(): Promise<any>;
 /**
  * Stores data in Dapr state store
  */

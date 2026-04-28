@@ -144,7 +144,7 @@ export function matchHashtag(payload: MechPayload, hashtags: string[] | string) 
   return selectedPayload as MechResponse;
 }
 
-if (require.main === module) {
+if (typeof require !== "undefined" && typeof module !== "undefined" && require.main === module) {
   let mech = {
     "text": "",
     "title": "[mech] Responses",

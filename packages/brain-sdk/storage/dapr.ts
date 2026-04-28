@@ -1,4 +1,3 @@
-import { DaprClient, CommunicationProtocolEnum } from '@dapr/dapr';
 import { getDaprHttpPort, getDaprStateStoreName, getDaprHost } from '../env';
 import { checkKey, sleep, getBackoffTime } from '../utils';
 import { GetOptions } from '../storage';
@@ -11,7 +10,11 @@ export type DaprStateResponse = {
 };
 
 // Initialize Dapr client for Dapr mode
-let daprClient: DaprClient | null = null;
+let daprClient: any = null;
+
+async function loadDaprModule() {
+  return Function("return import('@dapr/dapr')")() as Promise<any>;
+}
 
 /**
  * Escapes forward slashes in a key to make it safe for Dapr state store
@@ -21,8 +24,9 @@ function escapeSlashes(key: string): string {
 }
 
 // Lazy initialization of Dapr client to avoid issues during testing or when not needed
-export function getDaprClient(): DaprClient {
+export async function getDaprClient(): Promise<any> {
   if (!daprClient) {
+    const { DaprClient, CommunicationProtocolEnum } = await loadDaprModule();
     daprClient = new DaprClient({
       daprHost: getDaprHost(),
       daprPort: getDaprHttpPort(),
@@ -37,7 +41,7 @@ export function getDaprClient(): DaprClient {
  */
 export async function putToDapr(key: string, value: object): Promise<DaprStateResponse> {
   const stateStoreName = getDaprStateStoreName();
-  const client = getDaprClient();
+  const client = await getDaprClient();
   const formattedKey = escapeSlashes(key);
 
   console.log(`PUT to Dapr state store '${stateStoreName}', key: ${formattedKey}`);
@@ -62,7 +66,7 @@ export async function putToDapr(key: string, value: object): Promise<DaprStateRe
  */
 export async function getFromDapr(key: string, opts?: GetOptions): Promise<any> {
   const stateStoreName = getDaprStateStoreName();
-  const client = getDaprClient();
+  const client = await getDaprClient();
   const formattedKey = escapeSlashes(key);
   
   let retryCount = 0;

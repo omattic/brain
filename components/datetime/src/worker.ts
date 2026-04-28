@@ -3,9 +3,9 @@ import {
   CloudflareBucketLike,
   CloudflareQueueLike,
   daprize,
+  sendToBus,
 } from 'brain-sdk';
 import { run } from './components/datetime/index';
-import { webhook, interactivity, menu } from './lambda';
 
 declare const Response: any;
 declare const URL: any;
@@ -49,56 +49,102 @@ function configureCloudflareRuntime(env: Env) {
   });
 }
 
-async function toLambdaEvent(request: any) {
-  const url = new URL(request.url);
-  const body =
-    request.method === 'GET' || request.method === 'HEAD'
-      ? undefined
-      : await request.text();
-
-  return {
-    version: '2.0',
-    routeKey: `${request.method} ${url.pathname}`,
-    rawPath: url.pathname,
-    rawQueryString: url.search.startsWith('?') ? url.search.slice(1) : url.search,
-    headers: Object.fromEntries(request.headers.entries()),
-    requestContext: {
-      http: {
-        method: request.method,
-        path: url.pathname,
-        protocol: 'HTTP/1.1',
-        sourceIp: '0.0.0.0',
-        userAgent: request.headers.get('user-agent') || '',
-      },
+async function updateInteractiveMessage(responseUrl: string, text: string, blocks: any[]) {
+  await fetch(responseUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
     },
-    body,
-    isBase64Encoded: false,
-  };
+    body: JSON.stringify({
+      replace_original: true,
+      text,
+      blocks,
+    }),
+  });
 }
 
-function fromLambdaResponse(result: any) {
-  return new Response(result?.body || 'OK', {
-    status: result?.statusCode || 200,
-    headers: result?.headers,
+async function handleWebhook(request: Request) {
+  const parsedBody = await request.json();
+
+  if (parsedBody?.type === 'url_verification') {
+    return new Response(parsedBody.challenge || '', { status: 200 });
+  }
+
+  if (parsedBody?.event) {
+    await sendToBus('slack', parsedBody);
+  }
+
+  return new Response('OK');
+}
+
+async function handleInteractivity(request: Request) {
+  const body = await request.text();
+  let payload = body;
+
+  try {
+    payload = JSON.stringify(JSON.parse(body));
+  } catch {
+    const parsedForm = new URLSearchParams(body);
+    payload = parsedForm.get('payload') || body;
+  }
+
+  const buttonPressedPayload = JSON.parse(payload);
+  const buttonPressedAction = buttonPressedPayload.actions[0];
+  const destinationComponent = buttonPressedAction.value.split('__')[0];
+  const destinationCallId = buttonPressedAction.value.split('__')[1];
+
+  await sendToBus(destinationComponent, {
+    event: {
+      type: 'tool_call_authorization',
+      action: buttonPressedAction.action_id,
+      toolCallId: destinationCallId,
+    },
+    context: {},
   });
+
+  const originalBlocks = buttonPressedPayload.message.blocks;
+  const newText = `*Authorized* by <@${buttonPressedPayload.user.id}>.`;
+  const newBlocks = [
+    originalBlocks[0],
+    {
+      type: 'context',
+      elements: [
+        {
+          type: 'mrkdwn',
+          text: newText,
+        },
+      ],
+    },
+  ];
+
+  await updateInteractiveMessage(
+    buttonPressedPayload.response_url,
+    `${buttonPressedPayload.message.text}\n${newText}`,
+    newBlocks,
+  );
+
+  return new Response('OK');
+}
+
+function handleMenu() {
+  return new Response('OK');
 }
 
 export default {
   async fetch(request: any, env: Env) {
     configureCloudflareRuntime(env);
     const url = new URL(request.url);
-    const event = await toLambdaEvent(request);
 
     if (url.pathname === '/webhook') {
-      return fromLambdaResponse(await webhook(event, {}));
+      return handleWebhook(request);
     }
 
     if (url.pathname === '/interactivity') {
-      return fromLambdaResponse(await interactivity(event, {}));
+      return handleInteractivity(request);
     }
 
     if (url.pathname === '/menu' || url.pathname === '/menus') {
-      return fromLambdaResponse(await menu(event, {}));
+      return handleMenu();
     }
 
     if (url.pathname === '/health') {

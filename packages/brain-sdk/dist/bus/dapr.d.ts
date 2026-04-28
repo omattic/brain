@@ -1,10 +1,9 @@
-import { DaprClient } from '@dapr/dapr';
 export type DaprPublishResponse = {
     success: boolean;
     messageId?: string;
     [key: string]: any;
 };
-export declare function getDaprClient(): DaprClient;
+export declare function getDaprClient(): Promise<any>;
 /**
  * Publishes a message to a Dapr pub/sub topic
  *

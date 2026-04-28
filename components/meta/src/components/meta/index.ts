@@ -83,7 +83,7 @@ export async function run(event: any, context: any) {
 
 export const sqs = daprize(run)
 
-if (require.main === module) {
+if (typeof require !== "undefined" && typeof module !== "undefined" && require.main === module) {
   // This is only for local testing
 
   (async () => {

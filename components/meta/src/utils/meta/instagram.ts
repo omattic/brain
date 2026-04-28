@@ -657,7 +657,7 @@ export async function getFollowPendingRequests() {
   });
 }
 
-if (require.main === module) {
+if (typeof require !== "undefined" && typeof module !== "undefined" && require.main === module) {
   (async () => {
     console.log("TESTS")
     // let result = await fetchPost(`https://graph.instagram.com/v23.0/me/messages`, {
@@ -794,7 +794,7 @@ export async function debugCommentReply(commentId: string, text: string) {
   }
 }
 
-if(require.main === module) {
+if (typeof require !== "undefined" && typeof module !== "undefined" && require.main === module) {
   (async () => {
     console.log(await get("instagram/latesttoken"))
   })();

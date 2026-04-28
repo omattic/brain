@@ -3,9 +3,9 @@ import {
   CloudflareBucketLike,
   CloudflareQueueLike,
   daprize,
+  sendToBus,
 } from 'brain-sdk';
 import { run } from './components/meta/index';
-import { webhook } from './lambda';
 
 declare const Response: any;
 declare const URL: any;
@@ -49,38 +49,10 @@ function configureCloudflareRuntime(env: Env) {
   });
 }
 
-async function toLambdaEvent(request: any) {
-  const url = new URL(request.url);
-  const body =
-    request.method === 'GET' || request.method === 'HEAD'
-      ? undefined
-      : await request.text();
-
-  return {
-    version: '2.0',
-    routeKey: `${request.method} ${url.pathname}`,
-    rawPath: url.pathname,
-    rawQueryString: url.search.startsWith('?') ? url.search.slice(1) : url.search,
-    headers: Object.fromEntries(request.headers.entries()),
-    requestContext: {
-      http: {
-        method: request.method,
-        path: url.pathname,
-        protocol: 'HTTP/1.1',
-        sourceIp: '0.0.0.0',
-        userAgent: request.headers.get('user-agent') || '',
-      },
-    },
-    body,
-    isBase64Encoded: false,
-  };
-}
-
-function fromLambdaResponse(result: any) {
-  return new Response(result?.body || 'OK', {
-    status: result?.statusCode || 200,
-    headers: result?.headers,
-  });
+async function handleWebhook(request: Request) {
+  const parsedBody = await request.json();
+  await sendToBus('meta', { event: parsedBody, context: {} });
+  return new Response('OK');
 }
 
 export default {
@@ -89,7 +61,7 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === '/webhook') {
-      return fromLambdaResponse(await webhook(await toLambdaEvent(request), {}));
+      return handleWebhook(request);
     }
 
     if (url.pathname === '/health') {

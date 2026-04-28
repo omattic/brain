@@ -140,8 +140,20 @@ export type WhatsappEvent = {
 
 process.env.CLOUD_API_ACCESS_TOKEN = process.env.CLOUD_API_ACCESS_TOKEN || ""
 process.env.CLOUD_API_VERSION = "v20.0"
-const waPhoneNumberId = parseInt(process.env.WA_PHONE_NUMBER_ID || "407076939150585", 10);
-const wa = new WhatsApp(waPhoneNumberId);
+let waClient: WhatsApp | null = null;
+
+function getWhatsAppClient() {
+  const waPhoneNumberId = parseInt(process.env.WA_PHONE_NUMBER_ID || "0", 10);
+  if (!process.env.CLOUD_API_ACCESS_TOKEN || !waPhoneNumberId) {
+    return null;
+  }
+
+  if (!waClient) {
+    waClient = new WhatsApp(waPhoneNumberId);
+  }
+
+  return waClient;
+}
 
 // Enter the recipient phone number
 // let recipient_number = 34653596188;
@@ -194,6 +206,11 @@ type MediaObject = {
 
 export async function sendWhatsappTemplate(recipientNumber: string, template: MessageTemplateObject<ComponentTypesEnum.Body & ComponentTypesEnum.Header>, replyToMessageId?: string) {
   try {
+    const wa = getWhatsAppClient();
+    if (!wa) {
+      console.warn("Skipping WhatsApp template send because WhatsApp runtime config is missing");
+      return null;
+    }
     let result = await wa.messages.template(template, parseInt(recipientNumber));
     let jsonresult = await result?.responseBodyToJSON()
     // console.log("sendWhatsappTemplate result", jsonresult)
@@ -300,6 +317,11 @@ export async function sendWhatsappMessage(
 ) {
   console.log("🔥 sendWhatsappMessage: Sending message to", recipientNumber);
   try {
+    const wa = getWhatsAppClient();
+    if (!wa) {
+      console.warn("Skipping WhatsApp message send because WhatsApp runtime config is missing");
+      return null;
+    }
     let result
 
     if ((element as ICLWebhookAttachment).type === "image") {
@@ -462,7 +484,7 @@ export async function getMediaUrl(messageObject: SimpleMedia) {
   // return createPresignedUrl({ key: `bot/${filePath}` })
 }
 
-if (require.main === module) {
+if (typeof require !== "undefined" && typeof module !== "undefined" && require.main === module) {
   (async () => {
     // let mediaMetadata = await getMediaMetadata("1149748132779233")
     // const outputFilePath = path.join(__dirname, 'media.ogg'); // Replace with the desired output file path

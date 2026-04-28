@@ -700,7 +700,7 @@ export function restoreIds(text: string, context: MiddlewarePayload) {
   return text;
 }
 
-if (require.main === module) {
+if (typeof require !== "undefined" && typeof module !== "undefined" && require.main === module) {
   (async () => {
     let result = await getDocsAndConfig("C085CLKB0UQ")
 
