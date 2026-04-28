@@ -13,10 +13,9 @@ export default defineConfig({
       include: ['src/**/*.ts'],
       exclude: ['src/**/*.d.ts', 'src/app.ts']
     },
-    setupFiles: ['tests/setup.ts'],
     alias: {
       '@': path.resolve(__dirname, './src/'),
-      '@components': path.resolve(__dirname, './src/components'),
+      '@components': path.resolve(__dirname, './src'),
       '@controller': path.resolve(__dirname, './src/controller'),
       '@middlewares': path.resolve(__dirname, './src/middlewares'),
       '@services': path.resolve(__dirname, './src/services'),

@@ -4,7 +4,7 @@ import {
   CloudflareQueueLike,
   daprize,
 } from 'brain-sdk';
-import { run } from './brain/index';
+import { run } from './index';
 
 declare const Response: any;
 

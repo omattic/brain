@@ -1,8 +1,21 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { payload as invocationPayload } from "./event/invocation.event"
 
+const datetimeMocks = vi.hoisted(() => ({
+  isAuthorized: vi.fn(async ({ event, context }) => ({ event, context })),
+  sendToBus: vi.fn(),
+}));
+
+vi.mock('brain-sdk', async (importOriginal: any) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    isAuthorized: datetimeMocks.isAuthorized,
+    sendToBus: datetimeMocks.sendToBus,
+  };
+});
+
 import { run } from "../index";
-import { sendToBus } from "brain-sdk";
 
 describe('component/datetime', () => {
   beforeEach(() => {
@@ -17,20 +30,12 @@ describe('component/datetime', () => {
   });
 
   it('should send correct values to bus when invoked', async () => {
-    // Act
     await run(invocationPayload.event, invocationPayload.context as any);
-    expect(sendToBus).toHaveBeenCalledTimes(1);
-    // expect(sendToBus).toHaveBeenCalledWith('slack')
-
-    // Assert
-    // Check that sendToBus was called with the right arguments
-    // expect(sendToBus).toHaveBeenCalledTimes(1);
-    // expect(sendToBus).toHaveBeenCalledWith('slack', {
-    //   event: {
-    //     ...invocationPayload.event,
-    //     text: 'Current timestamp is: 2025-04-22T12:00:00.000Z'
-    //   },
-    //   context: invocationPayload.context
-    // });
+    expect(datetimeMocks.sendToBus).toHaveBeenCalledWith('brain', {
+      event: expect.objectContaining({
+        text: 'Current timestamp is: 2025-04-22T12:00:00.000Z',
+      }),
+      context: invocationPayload.context,
+    });
   });
 });

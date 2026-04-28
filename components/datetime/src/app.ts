@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import bodyParser from 'body-parser';
 import { daprize, DaprSubscription } from 'brain-sdk';
-import { run as datetimeHandler } from './datetime/index.js';
+import { run as datetimeHandler } from './index.js';
 
 const APP_PORT: string = process.env.APP_PORT ?? '5004';
 process.env.DAPR_PUBSUB_NAME = 'slackpubsub';

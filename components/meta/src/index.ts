@@ -1,8 +1,8 @@
 import { daprize } from "brain-sdk";
-import { redirectMessageToSlackChat } from "../redirectMessageToSlack";
+import { redirectMessageToSlackChat } from "./redirectMessageToSlack";
 import { processWebhookBridge, processWebhookMessage } from "@utils/meta/meta";
 import { MessengerEvent } from "@utils/meta/types";
-import "../../defaults"
+import "../defaults"
 
 type BridgeEvent = {
   fnName: "sendDirectMessage" | "sendComment"
