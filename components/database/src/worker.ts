@@ -5,7 +5,7 @@ import {
   configureRuntime,
   daprize,
 } from "brain-sdk";
-import { run } from "./database";
+import { run } from "./index";
 
 declare const Response: any;
 declare const URL: any;
