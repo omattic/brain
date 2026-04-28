@@ -1,0 +1,133 @@
+# Runtime Config
+
+## Local Development vs Production
+
+The repo supports local env-based configuration, but production is increasingly KV- and Worker-secret-driven.
+
+Use:
+
+- `.env.example` as the canonical local/dev variable inventory
+- Worker secrets for sensitive deployed values
+- KV for mutable runtime mappings and account/workspace token lookup
+
+## Shared Bindings
+
+Common Worker bindings:
+
+- `BRAIN_BUCKET`
+- queue producer bindings for all component queues
+
+Optional/additional bindings by component:
+
+- `BRAIN_DB`
+- `META_TOKENS`
+- `SLACK_CONFIG`
+
+## Environment Variables
+
+### Slack
+
+- `SLACK_BOT_TOKEN`
+- `SLACK_APP_TOKEN`
+- `SLACK_SIGNING_SECRET`
+- `SLACK_DEFAULT_WORKSPACE`
+- `ADMIN_CHANNEL`
+- `SLACK_SMS_CHANNEL`
+
+Optional per-workspace local/dev fallback:
+
+- `SLACK_BOT_TOKEN_R3JS`
+- pattern: `SLACK_BOT_TOKEN_<WORKSPACE>`
+
+### Meta
+
+- `META_VERIFY_TOKEN`
+- `META_APP_SECRET`
+- `META_SLACK_CHANNEL`
+- `META_SLACK_WORKSPACE`
+- `INSTAGRAM_ACCESS_TOKEN`
+- `INSTAGRAM_ACCESS_TOKEN_CARLOS`
+- `INSTAGRAM_ACCESS_TOKEN_INGLESCONLIZA`
+- `CLOUD_API_ACCESS_TOKEN`
+- `WA_PHONE_NUMBER_ID`
+
+Production note:
+
+- Instagram access tokens should live in `META_TOKENS` KV where possible
+
+### Twilio
+
+- `TWILIO_ACCOUNT_SID`
+- `TWILIO_AUTH_TOKEN`
+- `TWILIO_PHONE_NUMBER`
+
+Compatibility note:
+
+- some local files still contain old misspelled `TWILLIO_*` names
+- runtime compatibility currently tolerates those, but new config should use `TWILIO_*`
+
+## KV Namespaces
+
+### `META_TOKENS`
+
+Used for Meta/Instagram token resolution.
+
+Key examples:
+
+- `instagram/access-token/default`
+- `instagram/access-token/inglesconliza`
+
+### `SLACK_CONFIG`
+
+Used for Slack route and workspace token lookup.
+
+Destination key examples:
+
+- `slack/destinations/iclsupport/instagramcomments`
+- `slack/destinations/instagramcomments`
+
+Workspace token key examples:
+
+- `slack/workspaces/default/bot-token`
+- `slack/workspaces/r3js/bot-token`
+
+## D1
+
+Shared database binding:
+
+- `BRAIN_DB`
+
+Database ownership:
+
+- `components/database` owns migrations and schema
+- `components/support` consumes the same DB
+
+## Secrets vs Vars
+
+Use Worker secrets for:
+
+- API tokens
+- signing secrets
+- credentials
+
+Use plain Worker vars for:
+
+- component names
+- non-sensitive default channel IDs
+- branch/environment markers
+
+Use KV for:
+
+- token sets keyed by account/workspace
+- route mapping keyed by group/topic
+- values that should change without deployment
+
+## Configuration Update Checklist
+
+When adding a new runtime value:
+
+1. Add it to `.env.example` if relevant for local/dev.
+2. Add it to `wrangler.jsonc` if it is a non-secret Worker var or binding.
+3. Add it to Worker `Env` typing if used from Cloudflare bindings.
+4. Add tests covering the behavior that depends on it.
+5. Document it here and in any relevant component docs.

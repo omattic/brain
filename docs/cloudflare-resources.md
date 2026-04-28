@@ -1,12 +1,14 @@
 # Cloudflare Resources
 
-Created on `2026-04-27` in account `Carlos CF Account`.
+## Account Resources
 
-## R2
+Documented resources currently referenced by this repo:
+
+### R2
 
 - `brain-state`
 
-## Queues
+### Queues
 
 - `brain-brain`
 - `brain-datetime`
@@ -15,7 +17,7 @@ Created on `2026-04-27` in account `Carlos CF Account`.
 - `brain-support`
 - `brain-twilio`
 
-## Dead Letter Queues
+### Dead Letter Queues
 
 - `brain-brain-dlq`
 - `brain-datetime-dlq`
@@ -24,9 +26,46 @@ Created on `2026-04-27` in account `Carlos CF Account`.
 - `brain-support-dlq`
 - `brain-twilio-dlq`
 
+### D1
+
+- `brain-database`
+  - `database_id`: `fd3d1b71-e6e4-4a86-a4a6-68300c0099b7`
+
+### KV
+
+- `META_TOKENS`
+  - `id`: `63b75363bbef45bea09a75cb7143e0cc`
+- `SLACK_CONFIG`
+  - `id`: `f27c4c498fe941c7919073cfb5cccdac`
+
+## Binding Usage
+
+### `BRAIN_BUCKET`
+
+Bound in all deployable components.
+
+### `BRAIN_DB`
+
+Bound in:
+
+- `database`
+- `support`
+
+### `META_TOKENS`
+
+Bound in:
+
+- `meta`
+
+### `SLACK_CONFIG`
+
+Bound in:
+
+- `meta`
+- `slack`
+
 ## Notes
 
-- `OPENAI_API_KEY` was uploaded as a Worker secret for `brain-brain`.
-- The queue and bucket infrastructure exists, but Worker deployment is still blocked.
-- The first blocker was AWS X-Ray loading in module scope. That SDK path has now been removed entirely from `brain-sdk`.
-- The current blocker is the Lambda/Express HTTP stack (`body-parser` / `raw-body` / related imports) being pulled into Worker bundles through the legacy webhook modules. Those public endpoint components need Worker-native HTTP handlers before they can be deployed successfully.
+- The old AWS/EKS deployment path is no longer the active runtime model for this repo.
+- Cloudflare Worker deployment is the current path documented by the GitHub Actions workflows.
+- This file should be updated whenever a new queue, KV namespace, R2 bucket, or D1 database is introduced.
