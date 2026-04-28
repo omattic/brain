@@ -108,21 +108,3 @@ dapr run --app-id publisher --app-port 3000 --components-path ./components ts-no
 # Run the state example
 dapr run --app-id state-example --app-port 3001 --components-path ./components ts-node state-example.ts
 ```
-
-## Running in Serverless Mode
-
-To run the examples using AWS services directly:
-
-```bash
-# Set environment variables
-export IS_SERVERLESS=true
-export REGION=us-east-1
-export AWS_ACCOUNT=123456789012
-export SQS_PREFIX=my-prefix-
-export BUCKET_NAME=my-bucket
-export BRANCH=dev
-
-# Run the examples
-ts-node sender.ts
-ts-node state-example.ts
-```

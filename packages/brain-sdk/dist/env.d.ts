@@ -1,7 +1,7 @@
 /**
  * Environment configuration utilities
  */
-export type RuntimeBackend = 'aws' | 'dapr' | 'cloudflare';
+export type RuntimeBackend = 'dapr' | 'cloudflare';
 export type CloudflareQueueContentType = 'text' | 'bytes' | 'json' | 'v8';
 export interface CloudflareQueueLike<Body = unknown> {
     send(body: Body, options?: {
@@ -37,17 +37,11 @@ export interface RuntimeConfig {
 export declare function configureRuntime(config: RuntimeConfig): RuntimeConfig;
 export declare function getRuntimeConfig(): RuntimeConfig;
 /**
- * Checks if the application is running in serverless mode
- * When true, AWS services (SQS, S3) will be used directly
- * When false, Dapr will be used for messaging and state management
- */
-export declare const isServerlessMode: () => boolean;
-/**
  * Returns the configured runtime backend.
  * Preference order:
  * 1. Explicitly configured via configureRuntime()
  * 2. Environment variable
- * 3. Inferred from existing serverless mode
+ * 3. Defaults to Dapr
  */
 export declare const getRuntimeBackend: () => RuntimeBackend;
 /**

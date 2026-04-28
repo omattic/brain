@@ -20,14 +20,9 @@ export async function run(event: SlackComponentEvent, context: any) {
     console.warn("Skipping slack run because Slack secrets are not configured");
     return null;
   }
-  // return AWSXRay.captureAsyncFunc('SlackComponent', async (segment) => {
   let result = null;
   try {
     const { fnName, params } = event;
-
-    // if (segment) {
-    //   segment.addAnnotation('event_type', fnName || 'api_gateway');
-    // }
 
     if (fnName) {
       if (fnName === "postMessage") {

@@ -3,9 +3,6 @@ import { sendToBus } from "brain-sdk";
 import { updateInteractiveMessage } from "@services/slack";
 import { parse } from 'querystring'
 
-// AWSXRay.captureHTTPsGlobal(require('http'));
-// AWSXRay.captureHTTPsGlobal(require('https'));
-
 export async function webhook(event: any, context: any) {
   console.log("🚀 api:", JSON.stringify(event, null, 2));
 

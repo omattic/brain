@@ -33,9 +33,8 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getBackoffTime = exports.sleep = exports.checkValueIsString = exports.checkValueIsObject = exports.checkKey = exports.endWithJson = exports.getDaprHost = exports.getDaprPubSubName = exports.getDaprStateStoreName = exports.getDaprHttpPort = exports.getRuntimeBackend = exports.isServerlessMode = exports.configureRuntime = exports.put = exports.get = exports.isAuthorized = exports.sendToBus = exports.AWSXRay = void 0;
+exports.getBackoffTime = exports.sleep = exports.checkValueIsString = exports.checkValueIsObject = exports.checkKey = exports.endWithJson = exports.getDaprHost = exports.getDaprPubSubName = exports.getDaprStateStoreName = exports.getDaprHttpPort = exports.getRuntimeBackend = exports.configureRuntime = exports.put = exports.get = exports.isAuthorized = exports.sendToBus = void 0;
 exports.daprize = daprize;
-const tracing = __importStar(require("./tracing"));
 const bus = __importStar(require("./bus"));
 const authorize = __importStar(require("./authorize"));
 const storage = __importStar(require("./storage"));
@@ -43,15 +42,12 @@ const env = __importStar(require("./env"));
 const utils = __importStar(require("./utils"));
 const package_json_1 = require("./package.json");
 console.log("🚙 daprize " + package_json_1.version);
-// Export specific functions with their types
-exports.AWSXRay = tracing.AWSXRay;
 exports.sendToBus = bus.sendToBus;
 exports.isAuthorized = authorize.isAuthorized;
 exports.get = storage.get;
 exports.put = storage.put;
 exports.configureRuntime = env.configureRuntime;
 // Export environment utility functions
-exports.isServerlessMode = env.isServerlessMode;
 exports.getRuntimeBackend = env.getRuntimeBackend;
 exports.getDaprHttpPort = env.getDaprHttpPort;
 exports.getDaprStateStoreName = env.getDaprStateStoreName;
@@ -66,38 +62,16 @@ exports.sleep = utils.sleep;
 exports.getBackoffTime = utils.getBackoffTime;
 /**
  * Creates an Express middleware to handle Dapr subscription requests or
- * a Lambda handler for SQS event processing in serverless mode
- * @param fnOrSubscriptions - Either a handler function (for serverless mode) or an array of Dapr subscriptions
+ * a Cloudflare queue handler for event processing
+ * @param fnOrSubscriptions - Either a handler function or an array of Dapr subscriptions
  * @param subscriptions - An array of Dapr topic subscriptions (only used when first param is a function)
- * @returns Either an Express middleware or a Lambda handler depending on the arguments
+ * @returns Either an Express middleware or a Cloudflare queue handler depending on the arguments
  */
 function daprize(fnOrSubscriptions, subscriptions) {
     console.log("🎸 daprize " + package_json_1.version);
-    // Check if first argument is a function (serverless mode) or an array (Dapr middleware mode)
+    // Check if first argument is a function (queue mode) or an array (Dapr middleware mode)
     if (typeof fnOrSubscriptions === 'function') {
         const fn = fnOrSubscriptions;
-        // In serverless mode, process SQS events
-        if (env.getRuntimeBackend() === 'aws') {
-            return async function (sqsPayload, context) {
-                context.callbackWaitsForEmptyEventLoop = true;
-                if (sqsPayload.Records) {
-                    for (const record of sqsPayload.Records) {
-                        let recordEvent = JSON.parse(record.body);
-                        let fullPayload;
-                        if (recordEvent.event && recordEvent.event.body) { // Is HTTP or SQS body payload
-                            fullPayload = JSON.parse(recordEvent.event.body);
-                        }
-                        else { // Is Dapr pubsub payload
-                            fullPayload = recordEvent;
-                        }
-                        console.log("daprize fullPayload", JSON.stringify(fullPayload, null, 2));
-                        if (fullPayload.event) {
-                            await fn(fullPayload.event, fullPayload.context);
-                        }
-                    }
-                }
-            };
-        }
         if (env.getRuntimeBackend() === 'cloudflare') {
             return async function (batch) {
                 const errors = [];

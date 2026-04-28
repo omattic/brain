@@ -3,7 +3,7 @@
  * Environment configuration utilities
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getDaprHost = exports.getDaprPubSubName = exports.getDaprStateStoreName = exports.getDaprHttpPort = exports.getRuntimeBackend = exports.isServerlessMode = void 0;
+exports.getDaprHost = exports.getDaprPubSubName = exports.getDaprStateStoreName = exports.getDaprHttpPort = exports.getRuntimeBackend = void 0;
 exports.configureRuntime = configureRuntime;
 exports.getRuntimeConfig = getRuntimeConfig;
 const runtimeConfig = {};
@@ -32,35 +32,24 @@ function getRuntimeConfig() {
     return runtimeConfig;
 }
 /**
- * Checks if the application is running in serverless mode
- * When true, AWS services (SQS, S3) will be used directly
- * When false, Dapr will be used for messaging and state management
- */
-const isServerlessMode = () => {
-    return process.env.IS_SERVERLESS === 'true' ||
-        process.env.IS_SERVERLESS === '1' ||
-        process.env.IS_SERVERLESS === 'yes';
-};
-exports.isServerlessMode = isServerlessMode;
-/**
  * Returns the configured runtime backend.
  * Preference order:
  * 1. Explicitly configured via configureRuntime()
  * 2. Environment variable
- * 3. Inferred from existing serverless mode
+ * 3. Defaults to Dapr
  */
 const getRuntimeBackend = () => {
     if (runtimeConfig.backend) {
         return runtimeConfig.backend;
     }
     const configured = (process.env.RUNTIME_BACKEND || '').toLowerCase();
-    if (configured === 'cloudflare' || configured === 'aws' || configured === 'dapr') {
+    if (configured === 'cloudflare' || configured === 'dapr') {
         return configured;
     }
     if (runtimeConfig.cloudflare?.bucket || runtimeConfig.cloudflare?.queues || runtimeConfig.cloudflare?.resolveQueue) {
         return 'cloudflare';
     }
-    return (0, exports.isServerlessMode)() ? 'aws' : 'dapr';
+    return 'dapr';
 };
 exports.getRuntimeBackend = getRuntimeBackend;
 /**

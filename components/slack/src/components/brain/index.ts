@@ -127,14 +127,6 @@ export async function run(event: OpenAIComponentEvent, context: BrainContext) {
   if ((chatCompletionResponse as ChatCompletion).choices) {
     console.log("chatCompletionResponse", JSON.stringify(chatCompletionResponse, null, 2))
 
-    // let currentSegment = AWSXRay.getSegment()
-    // currentSegment.addAnnotation('model', " > " + prompt.model);
-    // if (prompt.model) {
-    //   currentSegment.addMetadata("openai.model", prompt.model)
-    //   currentSegment.addMetadata("openai.request_id", chatCompletionResponse._request_id)
-    //   currentSegment.addMetadata("openai.response_id", chatCompletionResponse.id)
-    // }
-
     let responseMessage = chatCompletionResponse.choices[0].message;
     if (responseMessage.content) {
       console.log("responseMessage.content", responseMessage.content)

@@ -16,9 +16,6 @@ async function updateInteractiveMessage(responseUrl: string, text: string, block
   });
 }
 
-// AWSXRay.captureHTTPsGlobal(require('http'));
-// AWSXRay.captureHTTPsGlobal(require('https'));
-
 export async function webhook(event: any, context: any) {
   console.log("🚀 api:", JSON.stringify(event, null, 2));
 

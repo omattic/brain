@@ -6,14 +6,10 @@ import {
   historyMessagesToPromptMessages,
   restoreNames
 } from '@services/slack';
-// import *  as AWSXRay from "aws-xray-sdk-core"
 
 
 export async function generateOpenAIPrompt(context: MiddlewarePayload): Promise<ChatCompletionCreateParamsNonStreaming> {
   const { state, config } = context
-
-  // let seg = AWSXRay.getSegment() 
-  // let localsegment = seg.addNewSubsegment("[generateOpenAIPrompt]")
 
   let openAiPrompt = {
     model: config.model || "gpt-4o-mini", // 'gpt-4',

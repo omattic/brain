@@ -2,12 +2,11 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendToBus = sendToBus;
 const env_1 = require("./env");
-const aws_1 = require("./bus/aws");
 const cloudflare_1 = require("./bus/cloudflare");
 const dapr_1 = require("./bus/dapr");
 /**
  * Sends a message to a queue/topic
- * Uses Dapr pub/sub by default, or SQS if in serverless mode
+ * Uses Dapr pub/sub by default, or Cloudflare Queues in Workers mode
  *
  * @param queueName - The name of the queue/topic to send to
  * @param event - The event data to send
@@ -15,9 +14,6 @@ const dapr_1 = require("./bus/dapr");
  */
 function sendToBus(queueName, event) {
     const runtimeBackend = (0, env_1.getRuntimeBackend)();
-    if (runtimeBackend === 'aws') {
-        return (0, aws_1.sendToSQS)(queueName, event);
-    }
     if (runtimeBackend === 'cloudflare') {
         return (0, cloudflare_1.sendToCloudflareQueue)(queueName, event);
     }

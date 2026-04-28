@@ -4,7 +4,6 @@ exports.checkValueIsString = exports.checkValueIsObject = exports.checkKey = exp
 exports.get = get;
 exports.put = put;
 const env_1 = require("./env");
-const aws_1 = require("./storage/aws");
 const cloudflare_1 = require("./storage/cloudflare");
 const dapr_1 = require("./storage/dapr");
 const utils_1 = require("./utils");
@@ -14,7 +13,7 @@ Object.defineProperty(exports, "checkValueIsObject", { enumerable: true, get: fu
 Object.defineProperty(exports, "checkValueIsString", { enumerable: true, get: function () { return utils_1.checkValueIsString; } });
 /**
  * Retrieves data from storage
- * Uses Dapr state store by default, or S3 if in serverless mode
+ * Uses Dapr state store by default, or Cloudflare R2 in Workers mode
  *
  * @param key - The key to retrieve
  * @param opts - Options for retrieval (e.g., retry count)
@@ -22,9 +21,6 @@ Object.defineProperty(exports, "checkValueIsString", { enumerable: true, get: fu
  */
 async function get(key, opts) {
     const runtimeBackend = (0, env_1.getRuntimeBackend)();
-    if (runtimeBackend === 'aws') {
-        return (0, aws_1.getFromS3)(key, opts);
-    }
     if (runtimeBackend === 'cloudflare') {
         return (0, cloudflare_1.getFromCloudflareR2)(key, opts);
     }
@@ -32,7 +28,7 @@ async function get(key, opts) {
 }
 /**
  * Stores data in storage
- * Uses Dapr state store by default, or S3 if in serverless mode
+ * Uses Dapr state store by default, or Cloudflare R2 in Workers mode
  *
  * @param key - The key to store under
  * @param value - The data to store
@@ -40,9 +36,6 @@ async function get(key, opts) {
  */
 async function put(key, value) {
     const runtimeBackend = (0, env_1.getRuntimeBackend)();
-    if (runtimeBackend === 'aws') {
-        return (0, aws_1.putToS3)(key, value);
-    }
     if (runtimeBackend === 'cloudflare') {
         return (0, cloudflare_1.putToCloudflareR2)(key, value);
     }

@@ -226,23 +226,3 @@ async function test() {
 
 test().catch(console.error);
 ```
-
-## Running in Serverless Mode
-
-To run the examples using AWS services directly:
-
-```bash
-# Set environment variables
-export IS_SERVERLESS=true
-export REGION=us-east-1
-export AWS_ACCOUNT=123456789012
-export SQS_PREFIX=my-prefix-
-export BUCKET_NAME=my-bucket
-export BRANCH=dev
-
-# Run the publisher (the processor would typically be deployed as a Lambda function)
-node publisher.js
-
-# For local testing of the Lambda handler
-node local-test.js
-```

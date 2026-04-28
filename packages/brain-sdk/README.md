@@ -12,18 +12,8 @@ pnpm add brain-sdk
 
 ## Features
 
-### Tracing
-AWS X-Ray utilities for tracing your applications.
-
-```typescript
-import { AWSXRay } from 'brain-sdk';
-
-// Use X-Ray SDK
-const client = AWSXRay.captureAWSv3Client(new AWS.S3Client());
-```
-
 ### Message Bus
-Send messages using Dapr pub/sub (default), SQS queues (AWS serverless mode), or Cloudflare Queues.
+Send messages using Dapr pub/sub (default) or Cloudflare Queues.
 
 ```typescript
 import { sendToBus } from 'brain-sdk';
@@ -41,7 +31,7 @@ await sendToBus('topic-name', {
 ```
 
 ### Storage
-State management using Dapr state store (default), S3 storage (AWS serverless mode), or Cloudflare R2.
+State management using Dapr state store (default) or Cloudflare R2.
 
 ```typescript
 import { get, put } from 'brain-sdk';
@@ -86,7 +76,7 @@ if (authResult.error) {
 ```
 
 ### Event Processing
-The `daprize` function supports both Dapr and serverless modes, providing flexible event processing.
+The `daprize` function supports both Dapr and Cloudflare Queue consumer modes.
 
 #### Dapr Mode (Express Middleware)
 Use the daprize middleware to handle Dapr subscriptions in your Express application.
@@ -140,60 +130,46 @@ app.listen(PORT, () => {
 });
 ```
 
-#### Serverless Mode (AWS Lambda)
-Use the daprize function to wrap your event handler for SQS compatibility.
+#### Cloudflare Queue Consumer Mode
+Use the `daprize` function to wrap your event handler for Cloudflare Queue compatibility.
 
 ```typescript
-import { daprize, DaprSubscription } from 'brain-sdk';
+import { daprize } from 'brain-sdk';
 
-// Define your Dapr topic subscriptions (for documentation, not used in serverless mode)
-const subscriptions: DaprSubscription[] = [
-  {
-    pubsubName: 'pubsub',
-    topic: 'orders'
-  },
-  {
-    pubsubName: 'pubsub',
-    topic: 'users'
-  }
-];
-
-// Your handler function
 async function handleEvent(event, context) {
   console.log('Processing event:', event);
   // Your logic here
 }
 
-// Wrap it for SQS compatibility
-export const handler = daprize(handleEvent, subscriptions);
+// Wrap it for Queue consumer compatibility
+export default {
+  async queue(batch, env, ctx) {
+    return daprize(handleEvent)(batch, env, ctx);
+  }
+};
 ```
-
-In serverless mode, it processes SQS events as before.
 
 ## Architecture
 
-The SDK has been designed with a modular architecture to support both AWS and Dapr backends:
+The SDK has been designed with a modular architecture to support both Dapr and Cloudflare backends:
 
 ```
 brain-sdk/
 ├── index.ts          # Main entry point and exports
 ├── bus.ts            # Message bus interface
 ├── bus/
-│   ├── aws.ts        # AWS SQS implementation
 │   └── dapr.ts       # Dapr pub/sub implementation
 ├── storage.ts        # Storage interface
 ├── storage/
-│   ├── aws.ts        # AWS S3 implementation
 │   └── dapr.ts       # Dapr state store implementation
 ├── authorize.ts      # Authorization utilities
 ├── env.ts            # Environment configuration
-├── utils.ts          # Shared utility functions
-└── tracing.ts        # AWS X-Ray tracing utilities
+└── utils.ts          # Shared utility functions
 ```
 
 This architecture allows you to:
 - Use a consistent API regardless of the backend
-- Switch between AWS and Dapr backends by changing a single environment variable
+- Switch between Dapr and Cloudflare backends by changing a single environment variable
 - Extend or modify one implementation without affecting the other
 
 ## Development
@@ -211,20 +187,16 @@ pnpm test
 
 ## Environment Variables
 
-This SDK supports three backends:
+This SDK supports two backends:
 
 - `dapr` (default)
-- `aws`
 - `cloudflare`
 
-If `RUNTIME_BACKEND` is not set, the SDK falls back to the historical behavior:
-
-- AWS when `IS_SERVERLESS=true`
-- Dapr otherwise
+If `RUNTIME_BACKEND` is not set, the SDK falls back to `dapr` unless Cloudflare runtime bindings have been configured.
 
 ### Runtime Selection
 
-- `RUNTIME_BACKEND`: `dapr`, `aws`, or `cloudflare`
+- `RUNTIME_BACKEND`: `dapr` or `cloudflare`
 
 ### Common Environment Variables
 - `BRANCH`: Branch/environment name for storage path prefixing (used in both modes)
@@ -267,13 +239,6 @@ For Worker deployments that rely on Node.js APIs from your app or dependencies, 
 - `DAPR_HOST`: Dapr host for API communication (default: "127.0.0.1")
 - `DAPR_STATE_STORE`: Name of the Dapr state store component (default: "statestore")
 - `DAPR_PUBSUB_NAME`: Name of the Dapr pub/sub component (default: "pubsub")
-
-### Serverless Mode Environment Variables
-To enable serverless mode (using AWS services directly), set `IS_SERVERLESS=true` and configure:
-- `REGION`: AWS region (default: "us-east-1")
-- `AWS_ACCOUNT`: AWS account ID
-- `SQS_PREFIX`: Prefix for SQS queues
-- `BUCKET_NAME`: S3 bucket name for storage
 
 ## Examples
 
