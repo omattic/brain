@@ -5,7 +5,7 @@ import {
   daprize,
   sendToBus,
 } from 'brain-sdk';
-import { run } from './components/twilio/index';
+import { run } from './twilio/index';
 
 declare const Response: any;
 declare const URL: any;

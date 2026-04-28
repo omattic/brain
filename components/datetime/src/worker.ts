@@ -5,7 +5,7 @@ import {
   daprize,
   sendToBus,
 } from 'brain-sdk';
-import { run } from './components/datetime/index';
+import { run } from './datetime/index';
 
 declare const Response: any;
 declare const URL: any;

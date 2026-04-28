@@ -138,8 +138,8 @@ To use this project as a template for creating a new component:
 
 2. **Rename the component:**
    - Update `package.json` with your component name
-   - Create a new component directory in `src/components/`
-   - Follow the pattern in `src/components/datetime/index.ts` for your component
+   - Create a new component directory in `src/`
+   - Follow the pattern in `src/datetime/index.ts` for your component
    - Update the Kubernetes manifests in `deploy-eks/`
 
 3. **Implement your component logic:**

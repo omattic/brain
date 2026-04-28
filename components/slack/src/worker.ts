@@ -5,7 +5,7 @@ import {
   daprize,
   sendToBus,
 } from 'brain-sdk';
-import { run } from './components/slack/index';
+import { run } from './slack/index';
 import { isSlackConfigured, updateInteractiveMessage } from './services/slack';
 
 declare const Response: any;

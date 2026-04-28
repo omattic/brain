@@ -2,7 +2,7 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@components/*": ["./src/components/*"],
+      "@components/*": ["./src/*"],
       "@testevents/*": ["./tests/events/*"],
       "@events/*": ["./tests/events/*"],
       "@controller/*": ["./src/controller/*"],

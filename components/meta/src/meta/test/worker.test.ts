@@ -14,7 +14,7 @@ vi.mock('brain-sdk', async (importOriginal: any) => {
   };
 });
 
-import worker from '../../../worker';
+import worker from '../../worker';
 
 async function sign(body: string, secret: string) {
   const encoder = new TextEncoder();

@@ -1,1 +1,1 @@
-export * from "./components/database";
+export * from "./database";

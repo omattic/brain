@@ -3,8 +3,8 @@ import { run } from "../index";
 import { event as askForTime } from "./events/ask_for_time";
 import { BrainContext } from '@types';
 import * as brainSdk from 'brain-sdk';
-import { mockControl } from '../../../../tests/mocks/openai';
-import { brainSdkMockControl } from '../../../../tests/mocks/brain-sdk';
+import { mockControl } from '../../../tests/mocks/openai';
+import { brainSdkMockControl } from '../../../tests/mocks/brain-sdk';
 
 // Spy on the sendToBus function to check if it was called with the correct content
 const sendToBusSpy = vi.spyOn(brainSdk, 'sendToBus');

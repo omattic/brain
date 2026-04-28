@@ -1,10 +1,10 @@
 import express, { Request, Response } from 'express';
 import bodyParser from 'body-parser';
 import { daprize, DaprSubscription, sendToBus } from 'brain-sdk';
-import { run as slackHandler } from './components/slack/index.js';
-import { run as brainHandler } from './components/brain/index.js';
-import { run as datetimeHandler } from './components/datetime/index.js';
-import { run as exchangeHandler } from './components/exchange/index.js';
+import { run as slackHandler } from './slack/index.js';
+import { run as brainHandler } from './brain/index.js';
+import { run as datetimeHandler } from './datetime/index.js';
+import { run as exchangeHandler } from './exchange/index.js';
 import { updateInteractiveMessage } from './services/slack';
 
 const APP_PORT: string = process.env.APP_PORT ?? '5004';

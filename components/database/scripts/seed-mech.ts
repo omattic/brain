@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { parseMechDocument } from "../src/components/database";
+import { parseMechDocument } from "../src/database";
 
 const repoRoot = path.resolve(__dirname, "../../..");
 const mechPath = path.resolve(repoRoot, "components/slack/MECH.md");

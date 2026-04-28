@@ -11,7 +11,7 @@ vi.mock('@utils/meta/meta', () => ({
   processWebhookMessage: metaMocks.processWebhookMessage,
 }));
 
-vi.mock('../../../redirectMessageToSlack', () => ({
+vi.mock('../../redirectMessageToSlack', () => ({
   redirectMessageToSlackChat: metaMocks.redirectMessageToSlackChat,
 }));
 
