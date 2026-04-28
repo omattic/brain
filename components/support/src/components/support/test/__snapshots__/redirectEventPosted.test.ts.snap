@@ -1,8 +1,0 @@
-// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
-
-exports[`redirectEventPosted > redirectEventPosted 1`] = `
-Promise {
-  Symbol(async_id_symbol): 532,
-  Symbol(trigger_async_id_symbol): 525,
-}
-`;

@@ -1,6 +1,6 @@
-import { daprize, sendToBus } from "brain-sdk";
+import { daprize } from "brain-sdk";
 import { redirectMessageToSlackChat } from "../../redirectMessageToSlack";
-import { processWebhookBridge } from "@utils/meta/meta";
+import { processWebhookBridge, processWebhookMessage } from "@utils/meta/meta";
 import { MessengerEvent } from "@utils/meta/types";
 import "../../../defaults"
 
@@ -11,7 +11,7 @@ type BridgeEvent = {
   }
 }
 
-function isMetaConfigured() {
+function isMetaOutboundConfigured() {
   return Boolean(
     process.env.INSTAGRAM_ACCESS_TOKEN ||
     process.env.INSTAGRAM_ACCESS_TOKEN_CARLOS ||
@@ -39,11 +39,11 @@ function isMetaConfigured() {
 
 export async function run(event: any, context: any) {
   console.log("👾 meta -> run", JSON.stringify(event, null, 2))
-  if (!isMetaConfigured()) {
-    console.warn("Skipping meta run because no Meta runtime secrets are configured");
-    return;
-  }
   if (event.fnName) {
+    if (!isMetaOutboundConfigured()) {
+      console.warn("Skipping meta outbound run because no Meta runtime secrets are configured");
+      return;
+    }
 
     console.log("GOT fnName!")
     let bridgeEvent = event as BridgeEvent
@@ -76,8 +76,12 @@ export async function run(event: any, context: any) {
       } as MessengerEvent)
     }
 
-  } else {
+  } else if (event?.object) {
+    await processWebhookMessage(event)
+  } else if (event?.channel_id) {
     await redirectMessageToSlackChat(event)
+  } else {
+    console.warn("Skipping meta run because event shape is not recognized");
   }
 }
 

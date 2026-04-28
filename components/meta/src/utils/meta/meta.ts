@@ -1,4 +1,5 @@
 import { WebhookObject } from "whatsapp/build/types/webhooks";
+import { redirectMessageToSlackChat } from "../../redirectMessageToSlack";
 import {
   getAllMediaCaptions,
   getInstagramHandle,
@@ -477,10 +478,46 @@ export async function processWebhookMessage(metaPayload: any) {
       }
   }
 }
-export function sendToOmattic(arg0: string, arg1: string, data: any) {
-  throw new Error("Function not implemented.");
+
+function normalizeChannelKey(value: string) {
+  return value
+    .replace(/[^a-zA-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .toUpperCase();
 }
 
-export function tellGroup(arg0: string, arg1: string, body: any) {
-  throw new Error("Function not implemented.");
+function resolveSlackChannelId(groupName: string, topicName: string) {
+  const groupKey = normalizeChannelKey(groupName);
+  const topicKey = normalizeChannelKey(topicName);
+
+  return (
+    process.env[`${groupKey}_${topicKey}_CHANNEL`] ||
+    process.env[`${topicKey}_CHANNEL`] ||
+    process.env.META_SLACK_CHANNEL ||
+    process.env.ADMIN_CHANNEL ||
+    ""
+  );
+}
+
+async function routeMetaEventToSlack(groupName: string, topicName: string, payload: any) {
+  const channelId = resolveSlackChannelId(groupName, topicName);
+  if (!channelId) {
+    console.warn(`Skipping Meta Slack redirect for ${groupName}/${topicName} because no Slack channel is configured`);
+    return;
+  }
+
+  await redirectMessageToSlackChat({
+    ...payload,
+    channel_id: channelId,
+    username: payload.username || payload.userName,
+    text: payload.text || payload.content || payload.status?.status || "",
+  });
+}
+
+export async function sendToOmattic(groupName: string, topicName: string, data: any) {
+  await routeMetaEventToSlack(groupName, topicName, data);
+}
+
+export async function tellGroup(groupName: string, topicName: string, body: any) {
+  await routeMetaEventToSlack(groupName, topicName, body);
 }

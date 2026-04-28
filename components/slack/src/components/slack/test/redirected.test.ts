@@ -1,83 +1,41 @@
-import { vi, describe, it, expect, beforeEach } from 'vitest';
-import { run } from "../index"
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const slackHandlerMocks = vi.hoisted(() => ({
+  processSlackEvent: vi.fn(),
+}));
+
+vi.mock('@middlewares/slackHandler', () => ({
+  processSlackEvent: slackHandlerMocks.processSlackEvent,
+}));
+
+import { run } from "../index";
 import { event } from "./events/redirectedMessage.event";
 import { event as broadcastEvent } from "./events/redirectedThreadBroadcast.event";
-import { BrainContext } from 'brain-sdk';
-import * as brainSdk from 'brain-sdk';
 
-let docsAndConfigMock = {
-  text: "Default mocked text",
-  config: {
-    onlyUsernames: true,
-    sendToBus: "support"
-  },
-}
-
-describe('component/slack', () => {
+describe('component/slack raw event routing', () => {
   beforeEach(() => {
-    vi.mock('@services/slack', async (importOriginal) => {
-      const originalModule = await importOriginal();
-      return {
-        ...originalModule as any,
-        getDocsAndConfig: vi.fn().mockImplementation(() => {
-          return Promise.resolve(docsAndConfigMock);
-        })
-      };
-    });
-    
-    // Reset mock calls before each test
-    vi.mocked(brainSdk.sendToBus).mockClear();
+    vi.clearAllMocks();
   });
 
-  it('should send redirected message to custom bus', async () => {
-    // Create a spy on sendToBus function
-    const sendToBusSpy = vi.mocked(brainSdk.sendToBus);
-    
-    let result = await run(event, {
+  it('forwards redirected message events to the Slack middleware pipeline', async () => {
+    await run(event, {
       state: {
-        channelId: "C123456",
-        threadTs: "123456789"
-      }
-    } as BrainContext);
+        channelId: 'C123456',
+        threadTs: '123456789',
+      },
+    } as any);
 
-    expect(result).toMatchSnapshot();
-    
-    // Assert that sendToBus was called
-    expect(sendToBusSpy).toHaveBeenCalled();
-    
-    // Assert that it was called with the correct bus name from config
-    expect(sendToBusSpy).toHaveBeenCalledWith("support", expect.any(Object));
-    
-    // Check the structure of the parameters object
-    const callParams = sendToBusSpy.mock.calls[0][1];
-    expect(callParams).toHaveProperty('event');
-    expect(callParams.event).toHaveProperty('fnName', 'getCompletion');
-    expect(callParams).toHaveProperty('context');
+    expect(slackHandlerMocks.processSlackEvent).toHaveBeenCalledWith(event);
   });
 
-  it('should send redirected message to custom bus', async () => {
-    // Create a spy on sendToBus function
-    const sendToBusSpy = vi.mocked(brainSdk.sendToBus);
-    
-    let result = await run(broadcastEvent, {
+  it('forwards redirected thread broadcast events to the Slack middleware pipeline', async () => {
+    await run(broadcastEvent, {
       state: {
-        channelId: "C123456",
-        threadTs: "123456789"
-      }
-    } as BrainContext);
+        channelId: 'C123456',
+        threadTs: '123456789',
+      },
+    } as any);
 
-    expect(result).toMatchSnapshot();
-    
-    // Assert that sendToBus was called
-    expect(sendToBusSpy).toHaveBeenCalled();
-    
-    // Assert that it was called with the correct bus name from config
-    expect(sendToBusSpy).toHaveBeenCalledWith("support", expect.any(Object));
-    
-    // Check the structure of the parameters object
-    const callParams = sendToBusSpy.mock.calls[0][1];
-    expect(callParams).toHaveProperty('event');
-    expect(callParams.event).toHaveProperty('fnName', 'getCompletion');
-    expect(callParams).toHaveProperty('context');
+    expect(slackHandlerMocks.processSlackEvent).toHaveBeenCalledWith(broadcastEvent);
   });
 });

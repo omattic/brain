@@ -20,10 +20,25 @@ export interface CloudflareBucketLike {
         };
     }): Promise<unknown>;
 }
+export interface CloudflareD1PreparedStatementLike {
+    bind(...values: unknown[]): CloudflareD1PreparedStatementLike;
+    first<T = Record<string, unknown>>(): Promise<T | null>;
+    run(): Promise<unknown>;
+    all<T = Record<string, unknown>>(): Promise<{
+        results: T[];
+    }>;
+}
+export interface CloudflareD1DatabaseLike {
+    exec(query: string): Promise<unknown>;
+    prepare(query: string): CloudflareD1PreparedStatementLike;
+    batch?(statements: CloudflareD1PreparedStatementLike[]): Promise<unknown[]>;
+}
 export interface CloudflareRuntimeConfig {
     bucket?: CloudflareBucketLike;
     queues?: Record<string, CloudflareQueueLike>;
     resolveQueue?: (queueName: string) => CloudflareQueueLike | undefined;
+    d1?: Record<string, CloudflareD1DatabaseLike>;
+    resolveD1?: (databaseName: string) => CloudflareD1DatabaseLike | undefined;
 }
 export interface RuntimeConfig {
     backend?: RuntimeBackend;

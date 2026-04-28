@@ -8,6 +8,7 @@ export declare const isAuthorized: typeof authorize.isAuthorized;
 export declare const get: typeof storage.get;
 export declare const put: typeof storage.put;
 export declare const configureRuntime: typeof env.configureRuntime;
+export declare const getRuntimeConfig: typeof env.getRuntimeConfig;
 export declare const getRuntimeBackend: () => env.RuntimeBackend;
 export declare const getDaprHttpPort: () => string;
 export declare const getDaprStateStoreName: () => string;
@@ -21,7 +22,7 @@ export declare const sleep: typeof utils.sleep;
 export declare const getBackoffTime: typeof utils.getBackoffTime;
 export type { OpenAIComponentEvent, BrainContext } from './authorize';
 export type { DaprStateResponse, CloudflareR2Response, GetOptions } from './storage';
-export type { RuntimeBackend, RuntimeConfig, CloudflareRuntimeConfig, CloudflareQueueLike, CloudflareBucketLike, } from './env';
+export type { RuntimeBackend, RuntimeConfig, CloudflareRuntimeConfig, CloudflareQueueLike, CloudflareBucketLike, CloudflareD1DatabaseLike, CloudflareD1PreparedStatementLike, } from './env';
 /**
  * Dapr topic subscription configuration
  */

@@ -16,6 +16,9 @@ describe('instagramCommentPayload', () => {
   
   it('matchContextWithMechAnswer', async () => {
     let result = await getResponseForHashtags(payload.context?.state?.channelContext?.mech?.json, redirectEvent.chatGptContext);
-    expect(result).toMatchSnapshot()
+    expect(result).toEqual({
+      comment: 'Check your DMs! 💕',
+      dm: '¿Listo/a para dar el primer paso y empezar a transformar tu futuro con el inglés?¡Únete a mi club y comencemos juntos este increíble viaje! 👇\nPromo limitada por 2 horas: https://curso.inglesconliza.com/club-de-ingles-con-liza/?utm_source=metameta&amp;utm_campaign=lettrythis',
+    });
   });
 });

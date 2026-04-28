@@ -1,0 +1,30 @@
+{
+  "name": "brain-database",
+  "version": "0.1.0",
+  "description": "Database-backed response profile storage",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev:worker": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "migration:create": "wrangler d1 migrations create brain-database",
+    "migration:list": "wrangler d1 migrations list brain-database",
+    "migration:apply:local": "wrangler d1 migrations apply brain-database --local",
+    "migration:apply:remote": "wrangler d1 migrations apply brain-database --remote",
+    "seed:mech": "tsx scripts/seed-mech.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "brain-sdk": "workspace:*",
+    "drizzle-orm": "^0.44.5"
+  },
+  "devDependencies": {
+    "@types/node": "^18.15.0",
+    "@vitest/coverage-v8": "^1.0.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0",
+    "wrangler": "^4.13.2"
+  }
+}

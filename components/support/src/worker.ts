@@ -1,6 +1,7 @@
 import {
   configureRuntime,
   CloudflareBucketLike,
+  CloudflareD1DatabaseLike,
   CloudflareQueueLike,
   daprize,
   sendToBus,
@@ -12,6 +13,7 @@ declare const URL: any;
 
 interface Env extends Record<string, unknown> {
   BRAIN_BUCKET: CloudflareBucketLike;
+  BRAIN_DB: CloudflareD1DatabaseLike;
   BRAIN_QUEUE: CloudflareQueueLike;
   DATETIME_QUEUE: CloudflareQueueLike;
   META_QUEUE: CloudflareQueueLike;
@@ -37,6 +39,9 @@ function configureCloudflareRuntime(env: Env) {
     backend: 'cloudflare',
     cloudflare: {
       bucket: env.BRAIN_BUCKET,
+      d1: {
+        brain: env.BRAIN_DB,
+      },
       queues: {
         brain: env.BRAIN_QUEUE,
         datetime: env.DATETIME_QUEUE,

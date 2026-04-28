@@ -4,19 +4,17 @@ import { event as askForTime } from "./events/ask_for_time";
 import { BrainContext } from '@types';
 import * as brainSdk from 'brain-sdk';
 import { mockControl } from '../../../../tests/mocks/openai';
-import * as storageMock from '../../../../tests/mocks/storage';
-import * as storage from '@services/storage';
+import { brainSdkMockControl } from '../../../../tests/mocks/brain-sdk';
 
 // Spy on the sendToBus function to check if it was called with the correct content
 const sendToBusSpy = vi.spyOn(brainSdk, 'sendToBus');
-// Spy on the storage put function to check if completion data is properly stored
-const storagePutSpy = vi.spyOn(storage, 'put');
+const storagePutSpy = vi.spyOn(brainSdk, 'put');
 
 describe('component/openai+tool', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockControl.reset();
-    storageMock.clearStorageMock(); // Clear storage mock between tests
+    brainSdkMockControl.reset();
   });
 
   it('Should try to use a tool', async () => {
@@ -43,19 +41,22 @@ describe('component/openai+tool', () => {
     // Check that the event has a postMessage function name
     const eventData = sendToBusCall[1].event;
 
-    // Snapshot testing is also useful to check the overall structure hasn't changed
-    expect(eventData).toMatchSnapshot();
+    expect(eventData).toMatchObject({
+      type: 'tool_call',
+      completionId: 'chatcmpl-BPE1lKjdznAYRe3HlNCQeIQArdDnY',
+      toolCallId: 'call_20bmfWLoW5CHhERTPULavBZd',
+      arguments: {},
+    });
 
     // Check that data was persisted in storage
     expect(storagePutSpy).toHaveBeenCalled();
 
     // Verify the storage key follows the expected pattern
     const storagePutCall = storagePutSpy.mock.calls[0];
-    expect(storagePutSpy.mock.calls).toMatchSnapshot();
     expect(storagePutCall[0]).toMatch(/^chatCompletion\/.+/);
 
     // Verify the data structure that was stored
-    const storedData = storagePutCall[1] as any
+    const storedData = brainSdkMockControl.get(storagePutCall[0] as string) as any
     expect(storedData).toHaveProperty('event');
     expect(storedData).toHaveProperty('context');
     expect(storedData).toHaveProperty('prompt');
@@ -65,6 +66,7 @@ describe('component/openai+tool', () => {
     expect(storedData.prompt.messages.length).toBeGreaterThan(1);
 
     mockControl.useResponse('hourProvidedResponse');
+    expect(brainSdkMockControl.get('chatCompletion/chatcmpl-BPE1lKjdznAYRe3HlNCQeIQArdDnY')).toBeTruthy();
 
     await run({
       "type": "tool_call",

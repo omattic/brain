@@ -1,0 +1,25 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "brain-database",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-04-28",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "vars": {
+    "BRANCH": "main"
+  },
+  "r2_buckets": [
+    {
+      "binding": "BRAIN_BUCKET",
+      "bucket_name": "brain-state"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "BRAIN_DB",
+      "database_name": "brain-database",
+      "database_id": "fd3d1b71-e6e4-4a86-a4a6-68300c0099b7",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

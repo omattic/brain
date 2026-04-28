@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getBackoffTime = exports.sleep = exports.checkValueIsString = exports.checkValueIsObject = exports.checkKey = exports.endWithJson = exports.getDaprHost = exports.getDaprPubSubName = exports.getDaprStateStoreName = exports.getDaprHttpPort = exports.getRuntimeBackend = exports.configureRuntime = exports.put = exports.get = exports.isAuthorized = exports.sendToBus = void 0;
+exports.getBackoffTime = exports.sleep = exports.checkValueIsString = exports.checkValueIsObject = exports.checkKey = exports.endWithJson = exports.getDaprHost = exports.getDaprPubSubName = exports.getDaprStateStoreName = exports.getDaprHttpPort = exports.getRuntimeBackend = exports.getRuntimeConfig = exports.configureRuntime = exports.put = exports.get = exports.isAuthorized = exports.sendToBus = void 0;
 exports.daprize = daprize;
 const bus = __importStar(require("./bus"));
 const authorize = __importStar(require("./authorize"));
@@ -47,6 +47,7 @@ exports.isAuthorized = authorize.isAuthorized;
 exports.get = storage.get;
 exports.put = storage.put;
 exports.configureRuntime = env.configureRuntime;
+exports.getRuntimeConfig = env.getRuntimeConfig;
 // Export environment utility functions
 exports.getRuntimeBackend = env.getRuntimeBackend;
 exports.getDaprHttpPort = env.getDaprHttpPort;

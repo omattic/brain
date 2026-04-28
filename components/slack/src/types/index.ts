@@ -48,6 +48,7 @@ export type ChannelConfig = {
   sendToBus?: string
   isMechanical?: boolean
   isAutomatic?: boolean
+  responseProfile?: string
 }
 
 export type ExecutionState = {

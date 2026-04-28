@@ -24,6 +24,10 @@ function configureRuntime(config) {
                 ...(runtimeConfig.cloudflare?.queues || {}),
                 ...(config.cloudflare.queues || {}),
             },
+            d1: {
+                ...(runtimeConfig.cloudflare?.d1 || {}),
+                ...(config.cloudflare.d1 || {}),
+            },
         };
     }
     return getRuntimeConfig();
@@ -46,7 +50,11 @@ const getRuntimeBackend = () => {
     if (configured === 'cloudflare' || configured === 'dapr') {
         return configured;
     }
-    if (runtimeConfig.cloudflare?.bucket || runtimeConfig.cloudflare?.queues || runtimeConfig.cloudflare?.resolveQueue) {
+    if (runtimeConfig.cloudflare?.bucket ||
+        runtimeConfig.cloudflare?.queues ||
+        runtimeConfig.cloudflare?.resolveQueue ||
+        runtimeConfig.cloudflare?.d1 ||
+        runtimeConfig.cloudflare?.resolveD1) {
         return 'cloudflare';
     }
     return 'dapr';

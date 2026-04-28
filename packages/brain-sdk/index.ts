@@ -12,6 +12,7 @@ export const isAuthorized = authorize.isAuthorized;
 export const get = storage.get;
 export const put = storage.put;
 export const configureRuntime = env.configureRuntime;
+export const getRuntimeConfig = env.getRuntimeConfig;
 
 // Export environment utility functions
 export const getRuntimeBackend = env.getRuntimeBackend;
@@ -37,6 +38,8 @@ export type {
   CloudflareRuntimeConfig,
   CloudflareQueueLike,
   CloudflareBucketLike,
+  CloudflareD1DatabaseLike,
+  CloudflareD1PreparedStatementLike,
 } from './env';
 
 /**

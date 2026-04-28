@@ -1,34 +1,57 @@
-import { MiddlewarePayload } from '@types';
+import { describe, expect, it, vi } from 'vitest';
+
+const serviceMocks = vi.hoisted(() => ({
+  getHistory: vi.fn(),
+  historyMessagesToPromptMessages: vi.fn(),
+  restoreNames: vi.fn(),
+}));
+
+vi.mock('@services/slack', () => ({
+  getHistory: serviceMocks.getHistory,
+  historyMessagesToPromptMessages: serviceMocks.historyMessagesToPromptMessages,
+  restoreNames: serviceMocks.restoreNames,
+}));
+
 import { generateOpenAIPrompt } from '@utils/ai';
-import { describe, it, expect, vi } from 'vitest';
-import { openAIComplete } from '@services/openai';
 
 describe('utils/ai', () => {
-  it('should create an OpenAI prompt with the correct configuration', async () => {
-    let pipelinePayload = {
+  it('builds an OpenAI prompt from config, history, and bot prompt text', async () => {
+    serviceMocks.getHistory.mockResolvedValue({
+      messages: [{ text: 'hello' }],
+    });
+    serviceMocks.historyMessagesToPromptMessages.mockResolvedValue([
+      { role: 'user', content: '@user: hello' },
+    ]);
+    serviceMocks.restoreNames.mockImplementation(async (text: string) => text);
+
+    const prompt = await generateOpenAIPrompt({
       config: {
-        model: "gpt-3.5-turbo",
-        temperature: "0.7"
+        model: 'gpt-3.5-turbo',
+        temperature: '1',
       },
       state: {
-        prompt: "Hello, how can I help you?",
-        userId: "U123456",
-        channelId: "C123456",
-        isAppMention: true,
-        adminChannelId: "A123123",
-        channelType: "im",
-        threadTs: "1234567890.123456",
-        eventTs: "1234567890.123456",
-        isDm: true,
-        isGroup: false,
-        contextChannelId: "C654321",
-        isBotMessage: false,
-        messageUsername: "testuser",
-        botMentioned: true,
-        incomingMessageText: "Hi there!",
+        channelContext: {
+          bot: {
+            text: 'Hello, how can I help you?',
+          },
+        },
       },
-    } as MiddlewarePayload
-    const prompt = await generateOpenAIPrompt(pipelinePayload);
-    expect(prompt).toMatchSnapshot()
+    } as any);
+
+    expect(prompt).toEqual({
+      model: 'gpt-3.5-turbo',
+      n: 1,
+      temperature: 1,
+      messages: [
+        {
+          role: 'system',
+          content: 'Hello, how can I help you?',
+        },
+        {
+          role: 'user',
+          content: '@user: hello',
+        },
+      ],
+    });
   });
 });

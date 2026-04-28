@@ -1,147 +1,40 @@
-type Piece = {
-  [key: string]: string[] | string;
-  hashtags?: string[] | string;
-  comment?: string[] | string;
-  dm?: string[] | string;
-}
+import {
+  extractHashtags as extractHashtagsFromDatabase,
+  matchResponseByHashtags,
+  matchResponseForPostText,
+  RawResponseRule,
+  selectRandomOne as selectRandomOneFromDatabase,
+} from "brain-database";
 
-type MechPayload = Piece[]
+type Piece = RawResponseRule & {
+  [key: string]: string[] | string | boolean | number | undefined;
+};
 
-export function selectRandomOne(array: any[]) {
-  const randomIndex = Math.floor(Math.random() * array.length);
-  return array[randomIndex];
-}
-
-export function extractHashtags(text: string) {
-  const regex = /#\w+/g;
-  const matches = text.match(regex);
-  return matches ? matches.map((match) => match.replace(/#/g, "")) : [];
-}
+type MechPayload = Piece[];
 
 type MechResponse = {
   comment: string;
-  dm: string
+  dm: string;
+};
+
+export function selectRandomOne(array: any[]) {
+  return selectRandomOneFromDatabase(array);
+}
+
+export function extractHashtags(text: string) {
+  return extractHashtagsFromDatabase(text);
 }
 
 export function getResponseForHashtags(payload: MechPayload, postText: string): MechResponse {
-  let hashtagsInPost = extractHashtags(postText);
-  hashtagsInPost.push("default");
-  let selectedResponse = matchHashtag(payload, hashtagsInPost);
-
-  // Ensure we return a properly typed object
-  if (!selectedResponse) {
-    return {
-      comment: "",
-      dm: ""
-    };
-  }
-
-  return selectedResponse as MechResponse;
+  const selectedResponse = matchResponseForPostText(payload, postText);
+  return {
+    comment: selectedResponse?.comment || "",
+    dm: selectedResponse?.dm || "",
+  };
 }
 
 export function matchHashtag(payload: MechPayload, hashtags: string[] | string) {
-  // Ensure hashtags is always an array
-  let hashtagsArray = Array.isArray(hashtags) ? hashtags : [hashtags];
-
-  console.log("🎸 hashtagsArray", hashtagsArray);
-
-  hashtagsArray = hashtagsArray.map((tag) => tag.toLowerCase());
-
-  let payloadsPerHashtag = {} as any;
-  let matchedPayloads: Piece[] = [];
-
-  for (let item of payload) {
-    if (item?.hashtags) {
-      // Handle both string and array cases for hashtags property+
-      let separatedHashtags = []
-      if (Array.isArray(item.hashtags)) {
-        separatedHashtags = item.hashtags.map((line) => line.replace(/\n/g, ""))
-      } else if (typeof item.hashtags === 'string') {
-        // Handle case where hashtags is a string
-        separatedHashtags = item.hashtags.split(" ")
-      }
-      separatedHashtags.forEach((tag: string) => {
-        let tagToUse = tag.replace(/\n/g, "").toLowerCase()
-        payloadsPerHashtag[tagToUse] = item
-      })
-    }
-  }
-
-  console.log("🔥 payloadsPerHashtag", payloadsPerHashtag);
-
-  for (let hashtag of hashtagsArray) {
-    if (payloadsPerHashtag[hashtag]) {
-      matchedPayloads.push(payloadsPerHashtag[hashtag]);
-    }
-  }
-
-  console.log("matchedPayloads", matchedPayloads);
-
-  // for (let eachHashtag of hashtagsArray) {
-  //   // check if any item in payload has the current hashtag
-  //   let matchedItems = payload.filter((item: Piece) => {
-  //     // Handle case where hashtags is a string instead of array
-  //     if (item?.hashtags) {
-  //       // Handle both string and array cases for hashtags property
-  //       if (Array.isArray(item.hashtags)) {
-  //         let hashtagsJoined = item.hashtags.map((line) => line.replace(/\\n/g, "")).join(" ");
-  //         return hashtagsJoined.split(" ").some((tag) => tag.trim() === eachHashtag.trim());
-  //       } else if (typeof item.hashtags === 'string') {
-  //         // Handle case where hashtags is a string
-  //         return item.hashtags.trim() === eachHashtag.trim();
-  //       }
-  //     }
-  //     // Explicitly return false if no hashtags property or no match
-  //     return false;
-  //   });
-
-  //   if (matchedItems) {
-  //     matchedPayloads.push(...matchedItems);
-  //   }
-
-  // }
-
-  // let matchedPayload = payload.filter(Boolean).filter((item: Piece) => {
-  //   // Handle case where hashtags is a string instead of array
-  //   if (item?.hashtags) {
-  //     // Handle both string and array cases for hashtags property
-  //     if (Array.isArray(item.hashtags)) {
-  //       let hashtagsJoined = item.hashtags.map((line) => line.replace(/\\n/g, "")).join(" ");
-  //       console.log("hashtagsJoined", hashtagsJoined);
-  //       return hashtagsJoined.split(" ").some((tag) => hashtagsArray.includes(tag.trim()));
-  //     } else if (typeof item.hashtags === 'string') {
-  //       // Handle case where hashtags is a string
-  //       return hashtagsArray.includes(item.hashtags.trim());
-  //     }
-  //   }
-  //   // Explicitly return false if no hashtags property or no match
-  //   return false;
-  // });
-
-
-  let selectedPayload: Piece | undefined;
-  console.log("matchedPayload", matchedPayloads)
-  if (matchedPayloads.length > 0) {
-    selectedPayload = matchedPayloads[0]
-    console.log("selectedPayload", selectedPayload)
-    for (let key in selectedPayload) {
-      const value = selectedPayload[key];
-      if (Array.isArray(value)) {
-        selectedPayload[key] = selectRandomOne(value);
-        // If last character is a line break, remove it
-        if (typeof selectedPayload[key] === 'string' && selectedPayload[key]?.endsWith("\n")) {
-          selectedPayload[key] = (selectedPayload[key] as string).slice(0, -1);
-        }
-      } else if (typeof value === 'string' && value.endsWith("\n")) {
-        // Handle string case too
-        selectedPayload[key] = value.slice(0, -1);
-      }
-    }
-  }
-
-  console.log("selectedPayload final:", selectedPayload)
-
-  return selectedPayload as MechResponse;
+  return matchResponseByHashtags(payload, hashtags);
 }
 
 if (typeof require !== "undefined" && typeof module !== "undefined" && require.main === module) {

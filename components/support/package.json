@@ -16,6 +16,7 @@
     "@slack/bolt": "^4.2.1",
     "@slack/types": "^2.14.0",
     "@slack/web-api": "^7.9.1",
+    "brain-database": "workspace:*",
     "brain-sdk": "workspace:*",
     "chalk": "^5.4.1",
     "dotenv": "^16.0.3",

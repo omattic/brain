@@ -1,5 +1,10 @@
 import { daprize, get, sendToBus } from "brain-sdk";
 import { getResponseForHashtags } from "./matchHashtag";
+import {
+  ensureInstagramResponseProfile,
+  recordInstagramResponse,
+  resolveInstagramResponse,
+} from "brain-database";
 import * as emoji from "node-emoji";
 
 export async function run(event: any, context: any) {
@@ -52,7 +57,14 @@ export async function run(event: any, context: any) {
     if (postedMessage?.redirectEvent) {
       console.log("redirectEvent", JSON.stringify(postedMessage.redirectEvent, null, 2))
       console.log("Let's process this!")
-      let result = await getResponseForHashtags(context?.state?.channelContext?.mech?.json, postedMessage?.redirectEvent.chatGptContext);
+      const responseProfile = context.state.channelContext?.config?.responseProfile || context.state.channelId || postedMessage.redirectEvent.channel_id || "default";
+      const fallbackRules = context?.state?.channelContext?.mech?.json || [];
+      await ensureInstagramResponseProfile(responseProfile, fallbackRules, "support-mech-seed");
+      let result = await resolveInstagramResponse(
+        responseProfile,
+        postedMessage?.redirectEvent.chatGptContext || "",
+        fallbackRules
+      ) || getResponseForHashtags(fallbackRules, postedMessage?.redirectEvent.chatGptContext || "");
       context.redirectEvent = postedMessage.redirectEvent
       await sendToBus("meta", {
         event: {
@@ -92,6 +104,22 @@ export async function run(event: any, context: any) {
         },
         context
       })
+
+      await recordInstagramResponse(responseProfile, {
+        profile: responseProfile,
+        matchedHashtag: "matchedHashtag" in result ? result.matchedHashtag : undefined,
+        ruleId: "ruleId" in result ? result.ruleId : undefined,
+        postText: postedMessage?.redirectEvent.chatGptContext || "",
+        redirectEvent: postedMessage.redirectEvent,
+        response: {
+          comment: result.comment,
+          dm: result.dm,
+        },
+        meta: {
+          channelId: context.state.channelId,
+          eventTs: context.event.event_ts,
+        },
+      });
 
 
     }
