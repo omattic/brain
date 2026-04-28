@@ -14,6 +14,14 @@ export type SlackComponentEvent = {
   }
 } | any
 
+function getSlackDestinationPath(workspace: string | undefined, channelId: string) {
+  if (!workspace || workspace === "default") {
+    return channelId;
+  }
+
+  return `${workspace}/${channelId}`;
+}
+
 export async function run(event: SlackComponentEvent, context: any) {
   console.log("run -> event", JSON.stringify(event, null, 2))
   if (!isSlackConfigured()) {
@@ -33,14 +41,15 @@ export async function run(event: SlackComponentEvent, context: any) {
 
         let publishedMessage = await postMessage(context.state.channelId,
           restoreIds(markdownToSlack(params.text), context),
-          threadTs, params.replyBroadcast, params.username, params.blocks)
+          threadTs, params.replyBroadcast, params.username, params.blocks, context.state.workspace)
 
         if (params.redirectEvent) {
+          const destinationPath = getSlackDestinationPath(context.state.workspace, context.state.channelId);
           delete publishedMessage.response_metadata
-          await put("postedMessages/" + `${context.state.channelId}/ts/${publishedMessage.ts}.json`, { publishedMessage, redirectEvent: params.redirectEvent })
+          await put("postedMessages/" + `${destinationPath}/ts/${publishedMessage.ts}.json`, { publishedMessage, redirectEvent: params.redirectEvent })
 
           if (params.redirectEvent.username) {
-            await put(`messagesPerUser/` + `${params.redirectEvent.username}/${params.redirectEvent.channel_id}/publishedMessage.json`, publishedMessage)
+            await put(`messagesPerUser/` + `${params.redirectEvent.username}/${destinationPath}/publishedMessage.json`, publishedMessage)
           }
         }
       }

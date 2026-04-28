@@ -1,18 +1,20 @@
 import {
   configureRuntime,
   CloudflareBucketLike,
+  CloudflareKVNamespaceLike,
   CloudflareQueueLike,
   daprize,
   sendToBus,
 } from 'brain-sdk';
 import { run } from './slack/index';
-import { isSlackConfigured, updateInteractiveMessage } from './services/slack';
+import { updateInteractiveMessage } from './services/slack';
 
 declare const Response: any;
 declare const URL: any;
 
 interface Env extends Record<string, unknown> {
   BRAIN_BUCKET: CloudflareBucketLike;
+  SLACK_CONFIG: CloudflareKVNamespaceLike;
   BRAIN_QUEUE: CloudflareQueueLike;
   DATETIME_QUEUE: CloudflareQueueLike;
   META_QUEUE: CloudflareQueueLike;
@@ -38,6 +40,9 @@ function configureCloudflareRuntime(env: Env) {
     backend: 'cloudflare',
     cloudflare: {
       bucket: env.BRAIN_BUCKET,
+      kv: {
+        slackConfig: env.SLACK_CONFIG,
+      },
       queues: {
         brain: env.BRAIN_QUEUE,
         datetime: env.DATETIME_QUEUE,
@@ -120,9 +125,6 @@ function handleMenu() {
 export default {
   async fetch(request: any, env: Env) {
     configureCloudflareRuntime(env);
-    if (!isSlackConfigured()) {
-      return new Response('slack worker skipped: missing Slack secrets', { status: 204 });
-    }
     const url = new URL(request.url);
 
     if (url.pathname === '/webhook') {
@@ -146,10 +148,6 @@ export default {
 
   async queue(batch: unknown, env: Env) {
     configureCloudflareRuntime(env);
-    if (!isSlackConfigured()) {
-      console.warn("Skipping slack queue batch because Slack secrets are not configured");
-      return;
-    }
     const handler = daprize(run);
     await handler(batch);
   },

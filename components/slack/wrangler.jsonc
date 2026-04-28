@@ -20,6 +20,12 @@
       "bucket_name": "brain-state"
     }
   ],
+  "kv_namespaces": [
+    {
+      "binding": "SLACK_CONFIG",
+      "id": "f27c4c498fe941c7919073cfb5cccdac"
+    }
+  ],
   "queues": {
     "producers": [
       { "binding": "BRAIN_QUEUE", "queue": "brain-brain" },

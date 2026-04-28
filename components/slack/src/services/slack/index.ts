@@ -2,7 +2,8 @@ import { App, LogLevel } from "@slack/bolt"
 
 import { ChannelConfig, MiddlewarePayload } from "@types";
 import { ChatCompletionMessageParam } from "openai/resources";
-import { ChatPostMessageArguments, ConversationsRepliesResponse, GenericMessageEvent } from "@slack/web-api";
+import { ChatPostMessageArguments, ConversationsRepliesResponse, GenericMessageEvent, WebClient } from "@slack/web-api";
+import { getRuntimeConfig } from "brain-sdk";
 
 // console.log = function () { }
 
@@ -40,12 +41,59 @@ let AppInit = {
   // socketMode: false
 }
 
+const SLACK_CONFIG_NAMESPACE = "slackConfig";
+const DEFAULT_SLACK_WORKSPACE = "default";
+const workspaceClients = new Map<string, WebClient>();
+const workspaceTokenCache = new Map<string, Promise<string | null>>();
+
+function getSlackConfigNamespace() {
+  const cloudflare = getRuntimeConfig().cloudflare;
+  return cloudflare?.kv?.[SLACK_CONFIG_NAMESPACE] || cloudflare?.resolveKV?.(SLACK_CONFIG_NAMESPACE);
+}
+
+function normalizeWorkspace(workspace?: string | null) {
+  return workspace?.trim() || DEFAULT_SLACK_WORKSPACE;
+}
+
+function getWorkspaceTokenEnvKey(workspace?: string | null) {
+  return `SLACK_BOT_TOKEN_${normalizeWorkspace(workspace).replace(/[^a-zA-Z0-9]+/g, "_").toUpperCase()}`;
+}
+
+async function getStoredSlackBotToken(workspace?: string | null): Promise<string | null> {
+  const normalizedWorkspace = normalizeWorkspace(workspace);
+  if (workspaceTokenCache.has(normalizedWorkspace)) {
+    return workspaceTokenCache.get(normalizedWorkspace)!;
+  }
+
+  const tokenPromise = (async () => {
+    const namespace = getSlackConfigNamespace();
+    if (!namespace) {
+      return null;
+    }
+
+    return namespace.get(`slack/workspaces/${normalizedWorkspace}/bot-token`);
+  })();
+
+  workspaceTokenCache.set(normalizedWorkspace, tokenPromise);
+  return tokenPromise;
+}
+
+async function resolveSlackBotToken(workspace?: string | null): Promise<string | null> {
+  const normalizedWorkspace = normalizeWorkspace(workspace);
+  const storedToken = await getStoredSlackBotToken(normalizedWorkspace);
+  if (storedToken) {
+    return storedToken;
+  }
+
+  return process.env[getWorkspaceTokenEnvKey(normalizedWorkspace)] || process.env.SLACK_BOT_TOKEN || null;
+}
+
 export function isSlackConfigured() {
   return Boolean(
     process.env.SLACK_BOT_TOKEN &&
     process.env.SLACK_APP_TOKEN &&
     process.env.SLACK_SIGNING_SECRET
-  );
+  ) || Boolean(getSlackConfigNamespace());
 }
 
 // if (process.env.USE_WEBSOCKETS) {
@@ -58,13 +106,23 @@ export function isSlackConfigured() {
 
 export const app = isSlackConfigured() ? new App(AppInit) : ({ client: null } as any);
 
-function getClient() {
-  if (!app.client) {
-    console.warn("Slack client is unavailable because Slack secrets are not configured");
+async function getClient(workspace?: string | null) {
+  const normalizedWorkspace = normalizeWorkspace(workspace);
+  if (normalizedWorkspace === DEFAULT_SLACK_WORKSPACE && app.client) {
+    return app.client;
+  }
+
+  const token = await resolveSlackBotToken(normalizedWorkspace);
+  if (!token) {
+    console.warn(`Slack client is unavailable because no bot token is configured for workspace ${normalizedWorkspace}`);
     return null;
   }
 
-  return app.client;
+  if (!workspaceClients.has(normalizedWorkspace)) {
+    workspaceClients.set(normalizedWorkspace, new WebClient(token));
+  }
+
+  return workspaceClients.get(normalizedWorkspace)!;
 }
 
 export async function updateInteractiveMessage(response_url: string, text: string, blocks?: any[]) {
@@ -93,7 +151,7 @@ export async function updateInteractiveMessage(response_url: string, text: strin
 }
 
 export async function getMessageByTs(channelId: string, ts: string): Promise<GenericMessageEvent | null> {
-  const client = getClient();
+  const client = await getClient();
   if (!client) {
     return null;
   }
@@ -256,7 +314,7 @@ export async function getDocsAndConfig(channelId: string): Promise<ParsedTextAnd
 }
 
 export async function getChannelDocuments(channelId: string): Promise<SlackChannelDocument[]> {
-  const client = getClient();
+  const client = await getClient();
   if (!client) {
     return [];
   }
@@ -274,10 +332,14 @@ export async function getChannelDocuments(channelId: string): Promise<SlackChann
 
 export async function getSlackFileBody(doc: SlackChannelDocument): Promise<string> {
   // log("GET", doc.id)
+  const token = await resolveSlackBotToken();
+  if (!token) {
+    return "";
+  }
 
   let result = await fetch(doc.url_private, {
     headers: {
-      Authorization: `Bearer ${process.env.SLACK_BOT_TOKEN}`
+      Authorization: `Bearer ${token}`
     }
   })
   let htmlBody = await result.text()
@@ -355,7 +417,7 @@ export async function getHistory(context: MiddlewarePayload) {
 }
 
 export async function getSlackChannelHistory(channelId) {
-  const client = getClient();
+  const client = await getClient();
   if (!client) {
     return { messages: [] };
   }
@@ -375,7 +437,7 @@ export async function getSlackChannelHistory(channelId) {
 }
 
 export async function getSlackThreadHistory(channelId, threadTs): Promise<ConversationsRepliesResponse> {
-  const client = getClient();
+  const client = await getClient();
   if (!client) {
     return { messages: [] } as ConversationsRepliesResponse;
   }
@@ -400,12 +462,13 @@ export async function postMessage(
   replyBroadcast?: boolean,
   username?: string,
   blocks?: any[],
+  workspace?: string,
   // attachments?: AttachmentsPayload[],
 ) {
 
   text = text || ""
   channelId = channelId.replace("#", "")
-  const client = getClient();
+  const client = await getClient(workspace);
   if (!client) {
     return null;
   }
@@ -458,7 +521,7 @@ export async function postMessage(
 
 
 export async function deleteMessage(channel_id, ts) {
-  const client = getClient();
+  const client = await getClient();
   if (!client) {
     return;
   }
@@ -484,7 +547,7 @@ export async function setStatus(channel_id, status, thread_ts) {
     return
   }
 
-  const client = getClient();
+  const client = await getClient();
   if (!client) {
     return;
   }
@@ -508,7 +571,7 @@ export async function setStatus(channel_id, status, thread_ts) {
 }
 
 export async function setTitle(channel_id, title, thread_ts) {
-  const client = getClient();
+  const client = await getClient();
   if (!client) {
     return;
   }
@@ -526,7 +589,7 @@ export async function setTitle(channel_id, title, thread_ts) {
 }
 // let channelNameToId = {} as { [key: string]: string }
 export async function getChannelName(channelId, context: MiddlewarePayload): Promise<string> {
-  const client = getClient();
+  const client = await getClient();
   if (!client) {
     return "Unknown";
   }
@@ -555,7 +618,7 @@ function getChannelId(channelName: string, context: MiddlewarePayload): string {
 
 
 export async function addEmojiReaction(channelId, ts, emoji) {
-  const client = getClient();
+  const client = await getClient();
   if (!client) {
     return { error: "Slack client unavailable" };
   }
@@ -589,7 +652,7 @@ export function getUserId(username: string, context: MiddlewarePayload): string 
 }
 
 export async function getUserInfo(user_id, context: MiddlewarePayload): Promise<string> {
-  const client = getClient();
+  const client = await getClient();
   if (!client) {
     return "Unknown User Info";
   }

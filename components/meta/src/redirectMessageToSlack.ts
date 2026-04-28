@@ -2,6 +2,7 @@ import { get, sendToBus } from "brain-sdk"
 
 export type RedirectMessageToSlackChatEvent = {
   channel_id: string
+  workspace?: string
   botName?: string
   thread_ts?: string
   payload?: any
@@ -29,12 +30,21 @@ export type AttachmentsPayload = {
   filename?: string
 }
 
+function getSlackDestinationPath(workspace: string | undefined, channelId: string) {
+  if (!workspace || workspace === "default") {
+    return channelId;
+  }
+
+  return `${workspace}/${channelId}`;
+}
+
 export async function redirectMessageToSlackChat(redirectEvent: RedirectMessageToSlackChatEvent, opts?: { forceBroadcast?: boolean }) {
   console.log("🚀 Redirecting to", redirectEvent)
 
   let existingThreadForUser = { thread_ts: null, replyBroadcast: null }
+  const destinationPath = getSlackDestinationPath(redirectEvent.workspace, redirectEvent.channel_id);
   if (redirectEvent.username) {
-    let latestPublishedMessage = await get(`messagesPerUser/${redirectEvent.username}/${redirectEvent.channel_id}/publishedMessage.json`) || {}
+    let latestPublishedMessage = await get(`messagesPerUser/${redirectEvent.username}/${destinationPath}/publishedMessage.json`) || {}
     existingThreadForUser.thread_ts = latestPublishedMessage.thread_ts || latestPublishedMessage.ts
   }
 
@@ -57,6 +67,7 @@ export async function redirectMessageToSlackChat(redirectEvent: RedirectMessageT
       createdBy: "meta",
       state: {
         channelId: redirectEvent.channel_id,
+        workspace: redirectEvent.workspace,
         threadTs: existingThreadForUser.thread_ts || redirectEvent.thread_ts,
       }
     }

@@ -14,6 +14,7 @@ declare const URL: any;
 interface Env extends Record<string, unknown> {
   BRAIN_BUCKET: CloudflareBucketLike;
   META_TOKENS: CloudflareKVNamespaceLike;
+  SLACK_CONFIG: CloudflareKVNamespaceLike;
   BRAIN_QUEUE: CloudflareQueueLike;
   DATETIME_QUEUE: CloudflareQueueLike;
   META_QUEUE: CloudflareQueueLike;
@@ -41,6 +42,7 @@ function configureCloudflareRuntime(env: Env) {
       bucket: env.BRAIN_BUCKET,
       kv: {
         metaTokens: env.META_TOKENS,
+        slackConfig: env.SLACK_CONFIG,
       },
       queues: {
         brain: env.BRAIN_QUEUE,

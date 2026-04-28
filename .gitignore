@@ -3,3 +3,4 @@ node_modules/
 .wrangler/
 .DS_Store
 .env
+components/slack/R3JS_CREDS.md

@@ -24,6 +24,10 @@
     {
       "binding": "META_TOKENS",
       "id": "63b75363bbef45bea09a75cb7143e0cc"
+    },
+    {
+      "binding": "SLACK_CONFIG",
+      "id": "f27c4c498fe941c7919073cfb5cccdac"
     }
   ],
   "queues": {

@@ -13,6 +13,7 @@ import {
 import { getMediaUrl, ICLWebhookAttachment, ICLWebhookText, sendWhatsappMessage, SimpleMedia } from "./wa";
 import { MessengerEvent } from "./types";
 import { get } from "brain-sdk";
+import { getRuntimeConfig } from "brain-sdk";
 import { addAlias, microHash } from "../aliaser";
 import * as emoji from "node-emoji";
 
@@ -488,29 +489,82 @@ function normalizeChannelKey(value: string) {
     .toUpperCase();
 }
 
-function resolveSlackChannelId(groupName: string, topicName: string) {
+const SLACK_CONFIG_NAMESPACE = "slackConfig";
+
+type SlackDestinationConfig = {
+  channelId: string;
+  workspace?: string;
+};
+
+function getSlackConfigNamespace() {
+  const cloudflare = getRuntimeConfig().cloudflare;
+  return cloudflare?.kv?.[SLACK_CONFIG_NAMESPACE] || cloudflare?.resolveKV?.(SLACK_CONFIG_NAMESPACE);
+}
+
+async function getStoredSlackDestination(groupName: string, topicName: string): Promise<SlackDestinationConfig | null> {
+  const namespace = getSlackConfigNamespace();
+  if (!namespace) {
+    return null;
+  }
+
+  const groupKey = normalizeChannelKey(groupName).toLowerCase();
+  const topicKey = normalizeChannelKey(topicName).toLowerCase();
+  const candidateKeys = [
+    `slack/destinations/${groupKey}/${topicKey}`,
+    `slack/destinations/${topicKey}`,
+  ];
+
+  for (const key of candidateKeys) {
+    const rawValue = await namespace.get(key);
+    if (!rawValue) {
+      continue;
+    }
+
+    try {
+      const parsed = JSON.parse(rawValue) as SlackDestinationConfig;
+      if (parsed?.channelId) {
+        return parsed;
+      }
+    } catch (error) {
+      console.warn(`Invalid Slack destination config at ${key}`, error);
+    }
+  }
+
+  return null;
+}
+
+function resolveEnvSlackDestination(groupName: string, topicName: string): SlackDestinationConfig | null {
   const groupKey = normalizeChannelKey(groupName);
   const topicKey = normalizeChannelKey(topicName);
 
-  return (
+  const channelId =
     process.env[`${groupKey}_${topicKey}_CHANNEL`] ||
     process.env[`${topicKey}_CHANNEL`] ||
     process.env.META_SLACK_CHANNEL ||
     process.env.ADMIN_CHANNEL ||
-    ""
-  );
+    "";
+
+  if (!channelId) {
+    return null;
+  }
+
+  return {
+    channelId,
+    workspace: process.env[`${groupKey}_${topicKey}_WORKSPACE`] || process.env[`${topicKey}_WORKSPACE`] || process.env.META_SLACK_WORKSPACE || process.env.SLACK_DEFAULT_WORKSPACE || undefined,
+  };
 }
 
 async function routeMetaEventToSlack(groupName: string, topicName: string, payload: any) {
-  const channelId = resolveSlackChannelId(groupName, topicName);
-  if (!channelId) {
+  const destination = (await getStoredSlackDestination(groupName, topicName)) || resolveEnvSlackDestination(groupName, topicName);
+  if (!destination?.channelId) {
     console.warn(`Skipping Meta Slack redirect for ${groupName}/${topicName} because no Slack channel is configured`);
     return;
   }
 
   await redirectMessageToSlackChat({
     ...payload,
-    channel_id: channelId,
+    channel_id: destination.channelId,
+    workspace: destination.workspace,
     username: payload.username || payload.userName,
     text: payload.text || payload.content || payload.status?.status || "",
   });
