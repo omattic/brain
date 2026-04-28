@@ -1,6 +1,7 @@
 import {
   configureRuntime,
   CloudflareBucketLike,
+  CloudflareD1DatabaseLike,
   CloudflareKVNamespaceLike,
   CloudflareQueueLike,
   daprize,
@@ -13,6 +14,7 @@ declare const URL: any;
 
 interface Env extends Record<string, unknown> {
   BRAIN_BUCKET: CloudflareBucketLike;
+  BRAIN_DB: CloudflareD1DatabaseLike;
   META_TOKENS: CloudflareKVNamespaceLike;
   SLACK_CONFIG: CloudflareKVNamespaceLike;
   BRAIN_QUEUE: CloudflareQueueLike;
@@ -40,6 +42,9 @@ function configureCloudflareRuntime(env: Env) {
     backend: 'cloudflare',
     cloudflare: {
       bucket: env.BRAIN_BUCKET,
+      d1: {
+        brain: env.BRAIN_DB,
+      },
       kv: {
         metaTokens: env.META_TOKENS,
         slackConfig: env.SLACK_CONFIG,

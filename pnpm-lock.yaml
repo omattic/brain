@@ -175,6 +175,9 @@ importers:
       axios:
         specifier: ^1.9.0
         version: 1.15.2(debug@4.4.3)
+      brain-database:
+        specifier: workspace:*
+        version: link:../database
       brain-sdk:
         specifier: workspace:*
         version: link:../../packages/brain-sdk

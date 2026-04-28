@@ -14,6 +14,11 @@ vi.mock('brain-sdk', async (importOriginal: any) => {
   };
 });
 
+vi.mock('brain-database', () => ({
+  resolveInstagramResponse: vi.fn(async () => undefined),
+  recordInstagramResponse: vi.fn(async () => undefined),
+}));
+
 import worker from '../worker';
 
 async function sign(body: string, secret: string) {

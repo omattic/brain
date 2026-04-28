@@ -3,6 +3,16 @@ import { configureRuntime } from 'brain-sdk';
 
 const store = new Map<string, any>();
 
+const databaseMocks = vi.hoisted(() => ({
+  resolveInstagramResponse: vi.fn(async () => undefined),
+  recordInstagramResponse: vi.fn(async () => undefined),
+}));
+
+vi.mock('brain-database', () => ({
+  resolveInstagramResponse: databaseMocks.resolveInstagramResponse,
+  recordInstagramResponse: databaseMocks.recordInstagramResponse,
+}));
+
 vi.mock('@utils/meta/instagram', async (importOriginal: any) => {
   const actual = await importOriginal();
   return {

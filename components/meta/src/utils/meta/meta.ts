@@ -14,6 +14,7 @@ import { getMediaUrl, ICLWebhookAttachment, ICLWebhookText, sendWhatsappMessage,
 import { MessengerEvent } from "./types";
 import { get } from "brain-sdk";
 import { getRuntimeConfig } from "brain-sdk";
+import { recordInstagramResponse, resolveInstagramResponse } from "brain-database";
 import { addAlias, microHash } from "../aliaser";
 import * as emoji from "node-emoji";
 
@@ -97,6 +98,67 @@ type OmatticAIWebhook = {
   chatGptMode?: string
   chatGptContext?: string
   attachments?: AttachmentsToTelegram[]
+}
+
+function getInstagramResponseProfile(accountId: string | undefined) {
+  if (!accountId) {
+    return "default";
+  }
+
+  return instagramBots[accountId as keyof typeof instagramBots]?.handle || "default";
+}
+
+async function processInstagramCommentAutomation(body: OmatticAIWebhook, accountId: string | undefined) {
+  const responseProfile = getInstagramResponseProfile(accountId);
+  const result = await resolveInstagramResponse(responseProfile, body.chatGptContext || body.content || "");
+
+  if (!result) {
+    console.log(`No Instagram auto-response matched for profile ${responseProfile}`);
+    return null;
+  }
+
+  const senderId = body.userId.replace("instagram_", "");
+
+  if (result.dm) {
+    await processWebhookBridge({
+      object: "messenger_bridge",
+      bridge: "instagram",
+      text: result.dm,
+      id: senderId,
+      accountId,
+      comment_id: body.change?.value?.id,
+    } as MessengerEvent);
+  }
+
+  if (result.comment) {
+    await processWebhookBridge({
+      object: "messenger_bridge",
+      bridge: "instagramcomment",
+      text: `@${body.userName}: ${result.comment}`,
+      id: body.change?.value?.id,
+      accountId,
+    } as MessengerEvent);
+  }
+
+  await recordInstagramResponse(responseProfile, {
+    profile: responseProfile,
+    matchedHashtag: result.matchedHashtag,
+    ruleId: result.ruleId,
+    postText: body.chatGptContext || body.content || "",
+    redirectEvent: body,
+    response: {
+      comment: result.comment,
+      dm: result.dm,
+    },
+    meta: {
+      source: "meta-direct",
+      accountId,
+      commentId: body.change?.value?.id,
+      userId: body.userId,
+    },
+  });
+
+  return result;
 }
 
 export async function processWebhookBridge(messengerEvent: MessengerEvent) {
@@ -360,7 +422,8 @@ export async function processWebhookMessage(metaPayload: any) {
 
               if (!instagramBotIds.includes(relatedUser.id) && relatedUser.username !== "inglesconliza") {
                 console.log("body", JSON.stringify(body, null, 2))
-                await tellGroup("ICLSupport", "InstagramComments", body)
+                await processInstagramCommentAutomation(body, entry.id)
+                await routeMetaEventToSlackIfConfigured("ICLSupport", "InstagramComments", body)
               }
             }
           }
@@ -568,6 +631,23 @@ async function routeMetaEventToSlack(groupName: string, topicName: string, paylo
     username: payload.username || payload.userName,
     text: payload.text || payload.content || payload.status?.status || "",
   });
+}
+
+async function routeMetaEventToSlackIfConfigured(groupName: string, topicName: string, payload: any) {
+  const destination = (await getStoredSlackDestination(groupName, topicName)) || resolveEnvSlackDestination(groupName, topicName);
+  if (!destination?.channelId) {
+    return false;
+  }
+
+  await redirectMessageToSlackChat({
+    ...payload,
+    channel_id: destination.channelId,
+    workspace: destination.workspace,
+    username: payload.username || payload.userName,
+    text: payload.text || payload.content || payload.status?.status || "",
+  });
+
+  return true;
 }
 
 export async function sendToOmattic(groupName: string, topicName: string, data: any) {
