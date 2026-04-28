@@ -6,6 +6,7 @@ import {
   sendToBus,
 } from 'brain-sdk';
 import { run } from './index';
+import { isValidTwilioSignature } from './utils/validation';
 
 declare const Response: any;
 declare const URL: any;
@@ -52,12 +53,30 @@ function configureCloudflareRuntime(env: Env) {
 
 async function handleWebhook(request: Request) {
   const body = await request.text();
+  const contentType = request.headers.get('content-type') || '';
   let parsedBody: unknown;
+  let params = new URLSearchParams();
 
-  try {
-    parsedBody = JSON.parse(body);
-  } catch {
-    parsedBody = Object.fromEntries(new URLSearchParams(body).entries());
+  if (contentType.includes('application/x-www-form-urlencoded')) {
+    params = new URLSearchParams(body);
+    const validSignature = await isValidTwilioSignature(
+      request.url,
+      request.headers.get('x-twilio-signature'),
+      params,
+    );
+
+    if (!validSignature) {
+      return new Response('Invalid signature', { status: 403 });
+    }
+
+    parsedBody = Object.fromEntries(params.entries());
+  } else {
+    try {
+      parsedBody = JSON.parse(body);
+    } catch {
+      params = new URLSearchParams(body);
+      parsedBody = Object.fromEntries(params.entries());
+    }
   }
 
   await sendToBus(process.env.COMPONENT || 'twilio', { event: parsedBody });

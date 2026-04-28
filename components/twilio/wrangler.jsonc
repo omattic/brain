@@ -13,7 +13,8 @@
   ],
   "vars": {
     "BRANCH": "main",
-    "COMPONENT": "twilio"
+    "COMPONENT": "twilio",
+    "SLACK_SMS_CHANNEL": "C08HN72LSDD"
   },
   "r2_buckets": [
     {
