@@ -38,6 +38,7 @@ export type {
   CloudflareRuntimeConfig,
   CloudflareQueueLike,
   CloudflareBucketLike,
+  CloudflareKVNamespaceLike,
   CloudflareD1DatabaseLike,
   CloudflareD1PreparedStatementLike,
 } from './env';

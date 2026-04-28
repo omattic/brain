@@ -20,6 +20,12 @@
       "bucket_name": "brain-state"
     }
   ],
+  "kv_namespaces": [
+    {
+      "binding": "META_TOKENS",
+      "id": "63b75363bbef45bea09a75cb7143e0cc"
+    }
+  ],
   "queues": {
     "producers": [
       { "binding": "BRAIN_QUEUE", "queue": "brain-brain" },

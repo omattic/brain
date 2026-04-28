@@ -1,13 +1,85 @@
 import axios from 'axios';
 import "../../../defaults"
 import { ICLWebhookAttachment, ICLWebhookText } from './wa';
-import { put, get } from 'brain-sdk';
+import { put, get, getRuntimeConfig } from 'brain-sdk';
 import { MessengerEvent } from './types';
 import fetch from 'node-fetch';
 import { tellGroup } from './meta';
 
 // import { sleep } from 'openai/core';
 let accessToken = process.env.INSTAGRAM_ACCESS_TOKEN || ""
+const META_TOKENS_NAMESPACE = "metaTokens";
+const DEFAULT_INSTAGRAM_TOKEN_KEY = "instagram/access-token/default";
+const INSTAGRAM_TOKEN_KEYS: Record<string, string> = {
+  default: DEFAULT_INSTAGRAM_TOKEN_KEY,
+  guerrerocarlos: "instagram/access-token/guerrerocarlos",
+  inglesconliza: "instagram/access-token/inglesconliza",
+  "17841401527750596": "instagram/access-token/guerrerocarlos",
+  "17841401707784079": "instagram/access-token/inglesconliza",
+};
+
+type InstagramTokenScope = {
+  accountId?: string;
+  handle?: string;
+};
+
+type TokenFetchOptions = {
+  suppressErrors?: boolean;
+};
+
+function getMetaTokensNamespace() {
+  const cloudflare = getRuntimeConfig().cloudflare;
+  return cloudflare?.kv?.[META_TOKENS_NAMESPACE] || cloudflare?.resolveKV?.(META_TOKENS_NAMESPACE);
+}
+
+function normalizeTokenScope(scope?: InstagramTokenScope) {
+  if (!scope) return { accountId: undefined, handle: undefined };
+  return {
+    accountId: scope.accountId?.trim(),
+    handle: scope.handle?.trim().replace(/^@/, "").toLowerCase(),
+  };
+}
+
+function getInstagramTokenKey(scope?: InstagramTokenScope) {
+  const normalized = normalizeTokenScope(scope);
+  if (normalized.handle && INSTAGRAM_TOKEN_KEYS[normalized.handle]) {
+    return INSTAGRAM_TOKEN_KEYS[normalized.handle];
+  }
+  if (normalized.accountId && INSTAGRAM_TOKEN_KEYS[normalized.accountId]) {
+    return INSTAGRAM_TOKEN_KEYS[normalized.accountId];
+  }
+  return DEFAULT_INSTAGRAM_TOKEN_KEY;
+}
+
+function getEnvInstagramAccessToken(scope?: InstagramTokenScope) {
+  const normalized = normalizeTokenScope(scope);
+  if (normalized.handle === "guerrerocarlos" || normalized.accountId === "17841401527750596") {
+    return process.env.INSTAGRAM_ACCESS_TOKEN_CARLOS || process.env.INSTAGRAM_ACCESS_TOKEN || "";
+  }
+  if (normalized.handle === "inglesconliza" || normalized.accountId === "17841401707784079") {
+    return process.env.INSTAGRAM_ACCESS_TOKEN_INGLESCONLIZA || process.env.INSTAGRAM_ACCESS_TOKEN || "";
+  }
+  return process.env.INSTAGRAM_ACCESS_TOKEN || "";
+}
+
+async function getStoredInstagramAccessToken(scope?: InstagramTokenScope, options?: TokenFetchOptions) {
+  const namespace = getMetaTokensNamespace();
+  const tokenKey = getInstagramTokenKey(scope);
+  if (namespace) {
+    try {
+      const storedToken = await namespace.get(tokenKey);
+      if (storedToken?.trim()) {
+        return storedToken.trim();
+      }
+    } catch (error) {
+      if (!options?.suppressErrors) {
+        console.error(`Failed to read Instagram token from KV (${tokenKey})`, error);
+      }
+    }
+  }
+
+  return getEnvInstagramAccessToken(scope);
+}
 
 // Attach instagram account to the App
 // https://developers.facebook.com/apps/7970622379694396/instagram-business/API-Setup/?business_id=1729767651176854
@@ -47,7 +119,12 @@ async function refreshInstagramToken(currentToken: string) {
 }
 
 let gettingTokenPromise: Promise<string> | null = null
-async function getAccessToken() {
+async function getAccessToken(scope?: InstagramTokenScope) {
+  const storedToken = await getStoredInstagramAccessToken(scope, { suppressErrors: true });
+  if (storedToken) {
+    accessToken = storedToken;
+    return storedToken;
+  }
   return accessToken
   if (gettingTokenPromise) {
     return gettingTokenPromise
@@ -129,13 +206,13 @@ type RefreshTokenInstagramGraphResponse = {
   created_at: number
 }
 
-async function fetchGet(url: string, params?: object) {
+async function fetchGet(url: string, params?: object, scope?: InstagramTokenScope) {
   try {
     const response = await axios(
       url,
       {
         params: {
-          access_token: await getAccessToken(),
+          access_token: await getAccessToken(scope),
           ...params
         },
       }
@@ -174,14 +251,14 @@ async function fetchGet(url: string, params?: object) {
   }
 }
 
-async function fetchPost(url: string, body: object, params?: object) {
+async function fetchPost(url: string, body: object, params?: object, scope?: InstagramTokenScope) {
   try {
     const response = await axios.post(
       url,
       body,
       {
         params: {
-          access_token: await getAccessToken(),
+          access_token: await getAccessToken(scope),
           ...params
         },
       }
@@ -279,6 +356,7 @@ export async function sendInstagramMessage(
   element: ICLWebhookAttachment | ICLWebhookText
 ) {
   let recipientId = messengerEvent.id
+  const tokenScope = { accountId: messengerEvent.accountId };
   console.log("🟢🟢🟢🟢🟢🔴🟢 sendInstagramMessage", recipientId)
   let result
 
@@ -289,11 +367,11 @@ export async function sendInstagramMessage(
     // if (messengerEvent.comment_id) {
     if (messengerEvent.comment_id) {
       console.log("SENDING TEXT TO COMMENT!")
-      result = await sendTextMessage({ comment_id: messengerEvent.comment_id }, (element as ICLWebhookText).text);
+      result = await sendTextMessage({ comment_id: messengerEvent.comment_id }, (element as ICLWebhookText).text, tokenScope);
       console.log("🔥 result with comment_id", { comment_id: messengerEvent.comment_id }, result)
     } else {
       console.log("SENDING TEXT TO ID!")
-      result = await sendTextMessage({ id: recipientId }, (element as ICLWebhookText).text);
+      result = await sendTextMessage({ id: recipientId }, (element as ICLWebhookText).text, tokenScope);
       console.log("🔥 result with", { id: recipientId }, result)
     }
   }
@@ -301,14 +379,14 @@ export async function sendInstagramMessage(
     console.log("SENDING IMAGE!")
     let msgElement = element as ICLWebhookAttachment
     console.log("sendInstagramMessage.sendImage", msgElement.url);
-    result = await sendUploadAndSendImage(recipientId, msgElement.url)
+    result = await sendUploadAndSendImage(recipientId, msgElement.url, tokenScope)
   }
 
   if ((element as ICLWebhookAttachment).type === "document") {
     console.log("SENDING DOCUMENT!")
     let msgElement = element as ICLWebhookAttachment
     console.log("sendInstagramMessage.sendImage", msgElement.url);
-    result = await sendUploadAndSendImage(recipientId, msgElement.url)
+    result = await sendUploadAndSendImage(recipientId, msgElement.url, tokenScope)
   }
 
   console.log("sendInstagramMessage.result", result)
@@ -405,7 +483,7 @@ async function uploadImage(accessToken: string, imageUrl: string) {
   }
 }
 
-export async function sendDocumentMessage(accountId: string, mediaId: string) {
+export async function sendDocumentMessage(accountId: string, mediaId: string, scope?: InstagramTokenScope) {
   try {
     const response = await axios.post(
       `https://graph.instagram.com/v20.0/me/messages`,
@@ -420,7 +498,7 @@ export async function sendDocumentMessage(accountId: string, mediaId: string) {
             }
           }
         },
-        access_token: await getAccessToken(),
+        access_token: await getAccessToken(scope),
       }
     );
 
@@ -431,7 +509,7 @@ export async function sendDocumentMessage(accountId: string, mediaId: string) {
   }
 }
 
-export async function sendImageMessage(accountId: string, mediaId: string) {
+export async function sendImageMessage(accountId: string, mediaId: string, scope?: InstagramTokenScope) {
   try {
     const response = await axios.post(
       `https://graph.instagram.com/v20.0/me/messages`,
@@ -446,7 +524,7 @@ export async function sendImageMessage(accountId: string, mediaId: string) {
             }
           }
         },
-        access_token: await getAccessToken(),
+        access_token: await getAccessToken(scope),
       }
     );
 
@@ -457,13 +535,13 @@ export async function sendImageMessage(accountId: string, mediaId: string) {
   }
 }
 
-export async function sendUploadAndSendImage(accountId: string, imageUrl: string) {
+export async function sendUploadAndSendImage(accountId: string, imageUrl: string, scope?: InstagramTokenScope) {
   try {
     console.log("sendImage", imageUrl);
 
     // let uploadedId = await uploadImage(accessToken, imageUrl)
     // console.log("uploadedId", uploadedId)
-    return sendImageMessage(accountId, imageUrl);
+    return sendImageMessage(accountId, imageUrl, scope);
   } catch (err) {
     console.log("ERR sendUploadAndSendImage", err)
     // console.log("ERR response data", err.response.data)
@@ -476,7 +554,7 @@ type Recipient = {
   "comment_id": string, // Comment ID
 }
 
-export async function sendTextMessage(recipient: Recipient, message: string) {
+export async function sendTextMessage(recipient: Recipient, message: string, scope?: InstagramTokenScope) {
   const MAX_MESSAGE_LENGTH = 1000;
 
   // remove "**" from message
@@ -487,7 +565,7 @@ export async function sendTextMessage(recipient: Recipient, message: string) {
     return await fetchPost(`https://graph.instagram.com/v20.0/me/messages`, {
       recipient,
       message: { "text": message },
-    });
+    }, undefined, scope);
   }
 
   // Split the message into chunks
@@ -533,7 +611,7 @@ export async function sendTextMessage(recipient: Recipient, message: string) {
     lastResponse = await fetchPost(`https://graph.instagram.com/v20.0/me/messages`, {
       recipient,
       message: { "text": chunk },
-    });
+    }, undefined, scope);
   }
 
   return lastResponse;
@@ -626,7 +704,7 @@ let testObj = {
   "object": "instagram"
 }
 
-export async function replyToComment(commentId: string, text: string) {
+export async function replyToComment(commentId: string, text: string, scope?: InstagramTokenScope) {
   console.log(`Attempting to reply to comment ${commentId} with text: "${text}"`);
   
   if (!commentId || !text) {
@@ -641,7 +719,7 @@ export async function replyToComment(commentId: string, text: string) {
   try {
     const result = await fetchPost(`https://graph.instagram.com/v20.0/${commentId}/replies`, {
       message: text,
-    });
+    }, undefined, scope);
     
     console.log(`Successfully replied to comment ${commentId}:`, result);
     return result;

@@ -146,7 +146,9 @@ export async function processWebhookBridge(messengerEvent: MessengerEvent) {
   }
 
   if (messengerEvent.bridge === "instagramcomment" && messengerEvent.id && messengerEvent.text) {
-    return replyToComment(messengerEvent.id, messengerEvent.text)
+    return replyToComment(messengerEvent.id, messengerEvent.text, {
+      accountId: messengerEvent.accountId,
+    })
   }
 
 }

@@ -2,6 +2,7 @@ export type MessengerEvent = {
   object: "messenger_bridge";
   bridge: "whatsapp" | "instagram" | "instagramcomment";
   id: string;
+  accountId?: string;
   comment_id?: string;
   text?: string;
   attachments?: MessengerEventAttachments[]

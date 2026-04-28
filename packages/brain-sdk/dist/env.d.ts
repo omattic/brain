@@ -20,6 +20,10 @@ export interface CloudflareBucketLike {
         };
     }): Promise<unknown>;
 }
+export interface CloudflareKVNamespaceLike {
+    get(key: string): Promise<string | null>;
+    put(key: string, value: string): Promise<void>;
+}
 export interface CloudflareD1PreparedStatementLike {
     bind(...values: unknown[]): CloudflareD1PreparedStatementLike;
     first<T = Record<string, unknown>>(): Promise<T | null>;
@@ -37,6 +41,8 @@ export interface CloudflareRuntimeConfig {
     bucket?: CloudflareBucketLike;
     queues?: Record<string, CloudflareQueueLike>;
     resolveQueue?: (queueName: string) => CloudflareQueueLike | undefined;
+    kv?: Record<string, CloudflareKVNamespaceLike>;
+    resolveKV?: (namespaceName: string) => CloudflareKVNamespaceLike | undefined;
     d1?: Record<string, CloudflareD1DatabaseLike>;
     resolveD1?: (databaseName: string) => CloudflareD1DatabaseLike | undefined;
 }

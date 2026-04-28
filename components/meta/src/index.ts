@@ -54,6 +54,7 @@ export async function run(event: any, context: any) {
         bridge: "instagram",
         text: bridgeEvent.params.text,
         id: context.redirectEvent.userId.replace("instagram_", ""),
+        accountId: context.redirectEvent.payload.entry[0].id,
         comment_id: context.redirectEvent.payload.entry[0].changes && context.redirectEvent.payload.entry[0].changes[0].value.id,
       } as MessengerEvent)
     }
@@ -63,7 +64,8 @@ export async function run(event: any, context: any) {
         object: "messenger_bridge",
         bridge: "instagramcomment",
         text: "@" + context.redirectEvent.userName + ": " + bridgeEvent.params.text,
-        id: context.redirectEvent.payload.entry[0].changes[0].value.id
+        id: context.redirectEvent.payload.entry[0].changes[0].value.id,
+        accountId: context.redirectEvent.payload.entry[0].id
       } as MessengerEvent)
     }
     if (event.fnName === "sendWhatsappMessage") {

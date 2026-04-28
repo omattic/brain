@@ -23,6 +23,7 @@ export declare const getBackoffTime: typeof utils.getBackoffTime;
 export type { OpenAIComponentEvent, BrainContext } from './authorize';
 export type { DaprStateResponse, CloudflareR2Response, GetOptions } from './storage';
 export type { RuntimeBackend, RuntimeConfig, CloudflareRuntimeConfig, CloudflareQueueLike, CloudflareBucketLike, CloudflareD1DatabaseLike, CloudflareD1PreparedStatementLike, } from './env';
+export type { CloudflareKVNamespaceLike } from './env';
 /**
  * Dapr topic subscription configuration
  */

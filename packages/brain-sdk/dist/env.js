@@ -24,6 +24,10 @@ function configureRuntime(config) {
                 ...(runtimeConfig.cloudflare?.queues || {}),
                 ...(config.cloudflare.queues || {}),
             },
+            kv: {
+                ...(runtimeConfig.cloudflare?.kv || {}),
+                ...(config.cloudflare.kv || {}),
+            },
             d1: {
                 ...(runtimeConfig.cloudflare?.d1 || {}),
                 ...(config.cloudflare.d1 || {}),
@@ -53,6 +57,8 @@ const getRuntimeBackend = () => {
     if (runtimeConfig.cloudflare?.bucket ||
         runtimeConfig.cloudflare?.queues ||
         runtimeConfig.cloudflare?.resolveQueue ||
+        runtimeConfig.cloudflare?.kv ||
+        runtimeConfig.cloudflare?.resolveKV ||
         runtimeConfig.cloudflare?.d1 ||
         runtimeConfig.cloudflare?.resolveD1) {
         return 'cloudflare';
