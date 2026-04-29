@@ -79,8 +79,9 @@ Notes:
 - `https://brain-admin.omattic.com/health`
 
 Notes:
-- `GET /` serves the management UI shell.
-- `/api/*` routes require a JWT verified through `auth.omattic.com`.
+- `GET /` serves the React frontend from `components/admin/frontend/dist` through Cloudflare `ASSETS`.
+- the frontend verifies the shared Omattic auth session on load and redirects to `auth.omattic.com` automatically when no valid session is present
+- `/api/*` routes accept the shared `session_token` cookie or a bearer JWT and verify it through `auth.omattic.com`
 
 ### Not Publicly Routed
 

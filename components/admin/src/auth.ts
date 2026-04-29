@@ -15,21 +15,38 @@ function getBearerToken(request: Request) {
   return token || null;
 }
 
+function getSessionCookie(request: Request) {
+  const cookieHeader = request.headers.get("cookie") || "";
+  for (const entry of cookieHeader.split(";")) {
+    const [name, ...value] = entry.trim().split("=");
+    if (name === "session_token" && value.length) {
+      return value.join("=");
+    }
+  }
+  return null;
+}
+
 export async function verifyAdminSession(request: Request) {
   const token = getBearerToken(request);
-  if (!token) {
+  const sessionCookie = getSessionCookie(request);
+  if (!token && !sessionCookie) {
     return {
       ok: false as const,
       status: 401,
-      error: "Missing bearer token",
+      error: "Missing admin session",
     };
   }
 
   const verifyUrl = process.env.ADMIN_AUTH_VERIFY_URL || "https://auth.omattic.com/verify";
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers.authorization = `Bearer ${token}`;
+  }
+  if (sessionCookie) {
+    headers.cookie = `session_token=${sessionCookie}`;
+  }
   const response = await fetch(verifyUrl, {
-    headers: {
-      authorization: `Bearer ${token}`,
-    },
+    headers,
   });
 
   if (!response.ok) {
@@ -55,7 +72,7 @@ export async function verifyAdminSession(request: Request) {
       email: `${payload.user.email}`.toLowerCase(),
       name: payload.user.name ? `${payload.user.name}` : undefined,
       domain: payload.user.domain ? `${payload.user.domain}` : undefined,
-      token,
+      token: token || sessionCookie || "",
     } satisfies AdminSession,
   };
 }

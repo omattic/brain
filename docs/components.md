@@ -19,12 +19,14 @@ Files:
 
 - [components/admin/src/worker.ts](/home/gnu/brain/components/admin/src/worker.ts:1)
 - [components/admin/src/auth.ts](/home/gnu/brain/components/admin/src/auth.ts:1)
-- [components/admin/src/html.ts](/home/gnu/brain/components/admin/src/html.ts:1)
+- [components/admin/frontend/src/app.tsx](/home/gnu/brain/components/admin/frontend/src/app.tsx:1)
 
 Notes:
 
 - serves `https://brain-admin.omattic.com`
-- protects `/api/*` with JWT verification against `auth.omattic.com`
+- serves the frontend through Cloudflare `ASSETS`
+- frontend auto-redirects to `auth.omattic.com` when the shared auth session is missing
+- protects `/api/*` with session-cookie or bearer-token verification against `auth.omattic.com`
 - manages tenants, tenant members, tenant Meta account mappings, and tenant component config
 - can inspect and replay failed `meta_webhook_events`
 

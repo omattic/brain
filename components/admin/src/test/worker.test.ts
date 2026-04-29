@@ -127,6 +127,9 @@ describe("admin worker", () => {
     put: vi.fn(async () => undefined),
     get: vi.fn(async () => null),
   };
+  const assetsMock = {
+    fetch: vi.fn(async () => new Response("<html>frontend</html>", { headers: { "content-type": "text/html" } })),
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -155,33 +158,36 @@ describe("admin worker", () => {
       BRAIN_DB: {} as any,
       BRAIN_CONFIG: kvMock as any,
       META_QUEUE: {} as any,
+      ASSETS: assetsMock as any,
     });
 
     expect(response.status).toBe(200);
-    expect(await response.text()).toContain("Operate tenants, configs, and failed Meta events.");
+    expect(await response.text()).toContain("frontend");
   });
 
-  it("rejects api requests without a bearer token", async () => {
+  it("rejects api requests without a session", async () => {
     const response = await worker.fetch(new Request("https://brain-admin.omattic.com/api/session"), {
       BRAIN_DB: {} as any,
       BRAIN_CONFIG: kvMock as any,
       META_QUEUE: {} as any,
+      ASSETS: assetsMock as any,
     });
 
     expect(response.status).toBe(401);
   });
 
-  it("returns the tenant bundle list for authenticated requests", async () => {
+  it("returns the tenant bundle list for cookie-authenticated requests", async () => {
     const response = await worker.fetch(
       new Request("https://brain-admin.omattic.com/api/tenants", {
         headers: {
-          authorization: "Bearer token",
+          cookie: "session_token=cookie-token",
         },
       }),
       {
         BRAIN_DB: {} as any,
         BRAIN_CONFIG: kvMock as any,
         META_QUEUE: {} as any,
+        ASSETS: assetsMock as any,
       }
     );
 
@@ -212,6 +218,7 @@ describe("admin worker", () => {
         BRAIN_DB: {} as any,
         BRAIN_CONFIG: kvMock as any,
         META_QUEUE: {} as any,
+        ASSETS: assetsMock as any,
       }
     );
 
@@ -234,6 +241,7 @@ describe("admin worker", () => {
         BRAIN_DB: {} as any,
         BRAIN_CONFIG: kvMock as any,
         META_QUEUE: {} as any,
+        ASSETS: assetsMock as any,
       }
     );
 
@@ -267,6 +275,7 @@ describe("admin worker", () => {
         BRAIN_DB: {} as any,
         BRAIN_CONFIG: kvMock as any,
         META_QUEUE: {} as any,
+        ASSETS: assetsMock as any,
       }
     );
 

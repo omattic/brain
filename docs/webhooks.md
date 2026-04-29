@@ -103,8 +103,9 @@ Routes:
 
 Behavior:
 
-- `GET /` serves the management dashboard shell
-- every `/api/*` route requires a JWT and verifies it against `auth.omattic.com`
+- `GET /` serves the React management dashboard via Cloudflare `ASSETS`
+- the frontend auto-redirects to `auth.omattic.com/auth?redirect_uri=...` when the shared session is missing
+- every `/api/*` route requires the shared auth session cookie or a bearer JWT and verifies it against `auth.omattic.com`
 - the monitoring routes can list and replay failed `meta_webhook_events`
 
 ## No Public Webhook Route

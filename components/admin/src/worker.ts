@@ -20,15 +20,19 @@ import {
   upsertTenantComponentConfig,
 } from "brain-database";
 import { verifyAdminSession } from "./auth";
-import { renderAdminHtml } from "./html";
 
 declare const Response: any;
 declare const URL: any;
+
+type AssetFetcher = {
+  fetch(request: Request): Promise<Response>;
+};
 
 interface Env extends Record<string, unknown> {
   BRAIN_DB: CloudflareD1DatabaseLike;
   BRAIN_CONFIG: CloudflareKVNamespaceLike;
   META_QUEUE: CloudflareQueueLike;
+  ASSETS: AssetFetcher;
 }
 
 function configureCloudflareRuntime(env: Env) {
@@ -214,16 +218,8 @@ export default {
       return new Response("OK");
     }
 
-    if (url.pathname === "/") {
-      return new Response(renderAdminHtml(), {
-        headers: {
-          "content-type": "text/html; charset=utf-8",
-        },
-      });
-    }
-
     if (!url.pathname.startsWith("/api/")) {
-      return new Response("Not Found", { status: 404 });
+      return env.ASSETS.fetch(request);
     }
 
     const authResult = await requireSession(request);

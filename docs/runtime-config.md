@@ -21,6 +21,7 @@ Optional/additional bindings by component:
 
 - `BRAIN_DB`
 - `BRAIN_CONFIG`
+- `ASSETS`
 - `META_TOKENS`
 - `SLACK_CONFIG`
 
