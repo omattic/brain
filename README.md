@@ -134,6 +134,7 @@ Key values by subsystem:
 Production note:
 - Meta and Slack workspace/runtime routing are intentionally moving away from static env vars and toward KV-backed configuration.
 - Tenant-scoped component config is now managed in D1 and mirrored into `BRAIN_CONFIG` KV by `brain-admin`.
+- `brain-meta` now reads tenant/account mappings and tenant-scoped Meta config from `BRAIN_CONFIG` before falling back to legacy global env/KV resolution.
 
 ## Deployments and Migrations
 

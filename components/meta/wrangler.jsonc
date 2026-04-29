@@ -42,6 +42,10 @@
       "id": "63b75363bbef45bea09a75cb7143e0cc"
     },
     {
+      "binding": "BRAIN_CONFIG",
+      "id": "90939e8e10f14dbcae541481245ea258"
+    },
+    {
       "binding": "SLACK_CONFIG",
       "id": "f27c4c498fe941c7919073cfb5cccdac"
     }

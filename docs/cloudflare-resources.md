@@ -59,6 +59,7 @@ Bound in:
 Bound in:
 
 - `admin`
+- `meta`
 
 ### `META_TOKENS`
 

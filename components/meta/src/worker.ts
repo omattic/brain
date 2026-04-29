@@ -21,6 +21,7 @@ interface Env extends Record<string, unknown> {
   BRAIN_BUCKET: CloudflareBucketLike;
   BRAIN_DB: CloudflareD1DatabaseLike;
   META_TOKENS: CloudflareKVNamespaceLike;
+  BRAIN_CONFIG: CloudflareKVNamespaceLike;
   SLACK_CONFIG: CloudflareKVNamespaceLike;
   BRAIN_QUEUE: CloudflareQueueLike;
   DATETIME_QUEUE: CloudflareQueueLike;
@@ -52,6 +53,7 @@ function configureCloudflareRuntime(env: Env) {
       },
       kv: {
         metaTokens: env.META_TOKENS,
+        brainConfig: env.BRAIN_CONFIG,
         slackConfig: env.SLACK_CONFIG,
       },
       queues: {

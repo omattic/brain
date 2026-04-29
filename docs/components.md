@@ -81,6 +81,7 @@ Notes:
 - accepts Meta webhook verification and signed event POSTs
 - resolves Slack destinations from KV first, env second
 - resolves Instagram access tokens from KV first, env second
+- resolves tenant/account mappings and tenant-scoped Meta config from `BRAIN_CONFIG`
 
 ## `slack`
 

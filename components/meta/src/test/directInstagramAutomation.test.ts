@@ -42,7 +42,36 @@ vi.mock('brain-sdk', async (importOriginal: any) => {
       store.set(key, value);
       return { success: true, key };
     }),
-    getRuntimeConfig: vi.fn(() => ({ cloudflare: {} })),
+    getRuntimeConfig: vi.fn(() => ({
+      cloudflare: {
+        kv: {
+          brainConfig: {
+            get: vi.fn(async (key: string) => {
+              if (key === 'tenant-meta-account/17841401707784079') {
+                return JSON.stringify({
+                  tenantId: 'tenant-1',
+                  provider: 'instagram',
+                  accountId: '17841401707784079',
+                  username: 'tenantprofile',
+                });
+              }
+
+              if (key === 'tenant-config/tenant-1/meta') {
+                return JSON.stringify({
+                  INSTAGRAM_RESPONSE_PROFILE: {
+                    value: 'tenantprofile',
+                    updatedAt: '2026-04-29T00:00:00.000Z',
+                  },
+                });
+              }
+
+              return null;
+            }),
+            put: vi.fn(),
+          },
+        },
+      },
+    })),
   };
 });
 
@@ -86,7 +115,7 @@ describe('direct Instagram comment automation', () => {
     await promise;
 
     expect(databaseMocks.resolveInstagramResponse).toHaveBeenCalledWith(
-      'inglesconliza',
+      'tenantprofile',
       expect.stringContaining('#grupo')
     );
     expect(instagramMocks.sendInstagramMessage).toHaveBeenCalledWith(
@@ -109,7 +138,7 @@ describe('direct Instagram comment automation', () => {
       }
     );
     expect(databaseMocks.recordInstagramResponse).toHaveBeenCalledWith(
-      'inglesconliza',
+      'tenantprofile',
       expect.objectContaining({
         matchedHashtag: 'grupo',
         ruleId: 'hashtag:grupo',

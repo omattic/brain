@@ -102,9 +102,15 @@ Used for tenant-scoped component config cached out of D1 by `brain-admin`.
 
 Key examples:
 
+- `tenant-meta-account/<accountId>`
 - `tenant-config/<tenantId>/meta`
 - `tenant-config/<tenantId>/meta/INSTAGRAM_ACCESS_TOKEN`
 - `tenant-config/<tenantId>/twilio/TWILIO_AUTH_TOKEN`
+
+Current runtime consumers:
+
+- `brain-admin` writes tenant config and account mappings
+- `brain-meta` reads tenant/account mappings and tenant-scoped Meta config
 
 ## D1
 

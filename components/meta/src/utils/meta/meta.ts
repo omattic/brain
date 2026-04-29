@@ -17,6 +17,7 @@ import { getRuntimeConfig } from "brain-sdk";
 import { recordInstagramResponse, resolveInstagramResponse } from "brain-database";
 import { addAlias, microHash } from "../aliaser";
 import * as emoji from "node-emoji";
+import { getTenantComponentConfigValueByAccount, getTenantMetaAccount } from "./runtimeConfig";
 
 import debug from "debug";
 const log = debug("icl:meta")
@@ -101,15 +102,33 @@ type OmatticAIWebhook = {
 }
 
 function getInstagramResponseProfile(accountId: string | undefined) {
+  return instagramBots[accountId as keyof typeof instagramBots]?.handle || "default";
+}
+
+async function resolveInstagramResponseProfile(accountId: string | undefined) {
   if (!accountId) {
     return "default";
   }
 
-  return instagramBots[accountId as keyof typeof instagramBots]?.handle || "default";
+  const configuredProfile = await getTenantComponentConfigValueByAccount(
+    accountId,
+    "meta",
+    "INSTAGRAM_RESPONSE_PROFILE"
+  );
+  if (typeof configuredProfile?.value === "string" && configuredProfile.value.trim()) {
+    return configuredProfile.value.trim();
+  }
+
+  const account = await getTenantMetaAccount(accountId);
+  if (account?.username?.trim()) {
+    return account.username.trim().replace(/^@/, "").toLowerCase();
+  }
+
+  return getInstagramResponseProfile(accountId);
 }
 
 async function processInstagramCommentAutomation(body: OmatticAIWebhook, accountId: string | undefined) {
-  const responseProfile = getInstagramResponseProfile(accountId);
+  const responseProfile = await resolveInstagramResponseProfile(accountId);
   const result = await resolveInstagramResponse(responseProfile, body.chatGptContext || body.content || "");
 
   if (!result) {

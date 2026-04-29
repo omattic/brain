@@ -5,6 +5,7 @@ import { put, get, getRuntimeConfig } from 'brain-sdk';
 import { MessengerEvent } from './types';
 import fetch from 'node-fetch';
 import { tellGroup } from './meta';
+import { getTenantComponentConfigValueByAccount } from './runtimeConfig';
 
 // import { sleep } from 'openai/core';
 let accessToken = process.env.INSTAGRAM_ACCESS_TOKEN || ""
@@ -63,6 +64,41 @@ function getEnvInstagramAccessToken(scope?: InstagramTokenScope) {
 }
 
 async function getStoredInstagramAccessToken(scope?: InstagramTokenScope, options?: TokenFetchOptions) {
+  const tenantConfig = await getTenantComponentConfigValueByAccount(
+    scope?.accountId,
+    "meta",
+    "INSTAGRAM_ACCESS_TOKEN"
+  );
+
+  if (tenantConfig) {
+    const configValue = tenantConfig.value as any;
+    if (typeof configValue === "string" && configValue.trim()) {
+      return configValue.trim();
+    }
+
+    if (configValue && typeof configValue === "object") {
+      if (typeof configValue.token === "string" && configValue.token.trim()) {
+        return configValue.token.trim();
+      }
+
+      if (typeof configValue.tokenKey === "string" && configValue.tokenKey.trim()) {
+        const namespace = getMetaTokensNamespace();
+        if (namespace) {
+          try {
+            const storedToken = await namespace.get(configValue.tokenKey.trim());
+            if (storedToken?.trim()) {
+              return storedToken.trim();
+            }
+          } catch (error) {
+            if (!options?.suppressErrors) {
+              console.error(`Failed to read Instagram token from KV (${configValue.tokenKey})`, error);
+            }
+          }
+        }
+      }
+    }
+  }
+
   const namespace = getMetaTokensNamespace();
   const tokenKey = getInstagramTokenKey(scope);
   if (namespace) {

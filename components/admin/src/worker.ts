@@ -123,6 +123,27 @@ async function syncTenantConfigCache(env: Env, tenantId: string, component: stri
   );
 }
 
+async function syncTenantMetaAccountCache(env: Env, account: {
+  tenantId: string;
+  provider: string;
+  accountId: string;
+  username?: string | null;
+  label?: string | null;
+  status?: string | null;
+}) {
+  await env.BRAIN_CONFIG.put(
+    `tenant-meta-account/${account.accountId}`,
+    JSON.stringify({
+      tenantId: account.tenantId,
+      provider: account.provider,
+      accountId: account.accountId,
+      username: account.username || null,
+      label: account.label || null,
+      status: account.status || "active",
+    })
+  );
+}
+
 async function requireSession(request: Request) {
   const authResult = await verifyAdminSession(request);
   if (!authResult.ok) {
@@ -277,6 +298,8 @@ export default {
         username: body.username ? `${body.username}` : undefined,
         label: body.label ? `${body.label}` : undefined,
       });
+
+      await syncTenantMetaAccountCache(env, account);
 
       return json({ account });
     }

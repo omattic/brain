@@ -248,4 +248,32 @@ describe("admin worker", () => {
     });
     expect(databaseMocks.updateMetaWebhookEventStatus).toHaveBeenCalledWith("evt-1", "queued");
   });
+
+  it("registers tenant meta accounts and mirrors the mapping into KV cache", async () => {
+    const response = await worker.fetch(
+      new Request("https://brain-admin.omattic.com/api/tenants/tenant-1/meta-accounts", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          provider: "instagram",
+          accountId: "17841401707784079",
+          username: "inglesconliza",
+        }),
+      }),
+      {
+        BRAIN_DB: {} as any,
+        BRAIN_CONFIG: kvMock as any,
+        META_QUEUE: {} as any,
+      }
+    );
+
+    expect(response.status).toBe(200);
+    expect(kvMock.put).toHaveBeenCalledWith(
+      "tenant-meta-account/17841401707784079",
+      expect.stringContaining("\"tenantId\":\"tenant-1\"")
+    );
+  });
 });
