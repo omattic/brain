@@ -378,7 +378,9 @@ export async function processWebhookMessage(metaPayload: any) {
               let xID = microHash(iID)
               await addAlias("social", "aliases", xID, iID)
 
-              let mediaData = await getMediaCaptionAndPermalink(change.value.media.id) || {}
+              let mediaData = await getMediaCaptionAndPermalink(change.value.media.id, {
+                accountId: entry.id,
+              }) || {}
               let commentedMediaCaption = mediaData?.caption || ""
               let permalinkId = ""
               if (mediaData?.permalink) {

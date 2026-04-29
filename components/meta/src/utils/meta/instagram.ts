@@ -251,6 +251,41 @@ async function fetchGet(url: string, params?: object, scope?: InstagramTokenScop
   }
 }
 
+function shouldRetryInstagramError(error: any) {
+  const status = error?.response?.status;
+  return status === 500 || status === 502 || status === 503 || status === 504;
+}
+
+async function fetchGetWithRetry(
+  url: string,
+  params?: object,
+  scope?: InstagramTokenScope,
+  options: { retries?: number; delayMs?: number } = {}
+) {
+  const retries = options.retries ?? 2;
+  const delayMs = options.delayMs ?? 200;
+
+  let lastError: any;
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      return await axios(url, {
+        params: {
+          access_token: await getAccessToken(scope),
+          ...params,
+        },
+      }).then((response) => response.data);
+    } catch (error) {
+      lastError = error;
+      if (!shouldRetryInstagramError(error) || attempt === retries) {
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, delayMs * (attempt + 1)));
+    }
+  }
+
+  return await fetchGet(url, params, scope);
+}
+
 async function fetchPost(url: string, body: object, params?: object, scope?: InstagramTokenScope) {
   try {
     const response = await axios.post(
@@ -344,11 +379,43 @@ export async function getInstagramHandle(userId: string) {
   return result
 }
 
-export async function getMediaCaptionAndPermalink(mediaId: string): any {
-  let result = await fetchGet(`https://graph.instagram.com/${mediaId}`, {
-    "fields": "caption,permalink,media_type,media_url,thumbnail_url",
-  })
-  return result as { caption: string, permalink: string }
+async function getMediaByAccountMediaList(mediaId: string, scope?: InstagramTokenScope) {
+  if (!scope?.accountId) {
+    return null;
+  }
+
+  const response = await fetchGetWithRetry(
+    `https://graph.instagram.com/v20.0/${scope.accountId}/media`,
+    {
+      fields: "id,caption,permalink,media_type,media_url,thumbnail_url",
+      limit: 100,
+    },
+    scope
+  );
+
+  const rows = response?.data || [];
+  return rows.find((row: any) => row?.id === mediaId) || null;
+}
+
+export async function getMediaCaptionAndPermalink(mediaId: string, scope?: InstagramTokenScope): Promise<any> {
+  const direct = await fetchGetWithRetry(
+    `https://graph.instagram.com/${mediaId}`,
+    {
+      fields: "caption,permalink,media_type,media_url,thumbnail_url",
+    },
+    scope
+  );
+
+  if (direct?.permalink || direct?.caption) {
+    return direct as { caption: string, permalink: string };
+  }
+
+  const fallback = await getMediaByAccountMediaList(mediaId, scope);
+  if (fallback?.permalink || fallback?.caption) {
+    return fallback as { caption: string, permalink: string };
+  }
+
+  return null;
 }
 
 export async function sendInstagramMessage(
