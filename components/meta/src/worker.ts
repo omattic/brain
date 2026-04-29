@@ -7,6 +7,7 @@ import {
   daprize,
   sendToBus,
 } from 'brain-sdk';
+import { recordMetaWebhookEvent, updateMetaWebhookEventStatus } from 'brain-database';
 import { run } from './index';
 
 declare const Response: any;
@@ -125,11 +126,47 @@ async function handleWebhook(request: Request) {
   const rawBody = await request.text();
   const validSignature = await isValidMetaSignature(request, rawBody);
   if (!validSignature) {
+    await recordMetaWebhookEvent({
+      payload: rawBody,
+      status: 'rejected',
+      errorMessage: 'Invalid signature',
+    });
     return new Response('Invalid signature', { status: 403 });
   }
 
-  const parsedBody = JSON.parse(rawBody);
-  await sendToBus('meta', { event: parsedBody, context: {} });
+  let parsedBody: any;
+  try {
+    parsedBody = JSON.parse(rawBody);
+  } catch (error) {
+    await recordMetaWebhookEvent({
+      payload: rawBody,
+      status: 'failed',
+      errorMessage: error instanceof Error ? error.message : 'Invalid JSON payload',
+    });
+    return new Response('Invalid JSON payload', { status: 400 });
+  }
+
+  const eventRecord = await recordMetaWebhookEvent({
+    payload: parsedBody,
+    status: 'received',
+    objectType: parsedBody?.object,
+    sourceAccountId: parsedBody?.entry?.[0]?.id,
+    externalEventId:
+      parsedBody?.entry?.[0]?.changes?.[0]?.value?.id ||
+      parsedBody?.entry?.[0]?.messaging?.[0]?.message?.mid ||
+      parsedBody?.entry?.[0]?.messaging?.[0]?.read?.mid,
+  });
+
+  try {
+    await sendToBus('meta', { event: parsedBody, context: { webhookEventId: eventRecord.id } });
+    await updateMetaWebhookEventStatus(eventRecord.id, 'queued');
+  } catch (error) {
+    await updateMetaWebhookEventStatus(eventRecord.id, 'failed', {
+      errorMessage: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
+
   return new Response('OK');
 }
 

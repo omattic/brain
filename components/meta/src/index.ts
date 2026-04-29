@@ -1,4 +1,5 @@
 import { daprize } from "brain-sdk";
+import { updateMetaWebhookEventStatus } from "brain-database";
 import { redirectMessageToSlackChat } from "./redirectMessageToSlack";
 import { processWebhookBridge, processWebhookMessage } from "@utils/meta/meta";
 import { MessengerEvent } from "@utils/meta/types";
@@ -79,7 +80,19 @@ export async function run(event: any, context: any) {
     }
 
   } else if (event?.object) {
-    await processWebhookMessage(event)
+    try {
+      await processWebhookMessage(event)
+      if (context?.webhookEventId) {
+        await updateMetaWebhookEventStatus(context.webhookEventId, "processed");
+      }
+    } catch (error) {
+      if (context?.webhookEventId) {
+        await updateMetaWebhookEventStatus(context.webhookEventId, "failed", {
+          errorMessage: error instanceof Error ? error.message : String(error),
+        });
+      }
+      throw error;
+    }
   } else if (event?.channel_id) {
     await redirectMessageToSlackChat(event)
   } else {

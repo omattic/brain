@@ -2,6 +2,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { get, getRuntimeConfig, put } from "brain-sdk";
 import {
+  metaWebhookEvents,
   instagramResponseLogs,
   instagramResponseProfileComments,
   instagramResponseProfileDms,
@@ -56,6 +57,22 @@ export type InstagramResponseLogEntry = {
     dm: string;
   };
   meta?: Record<string, unknown>;
+};
+
+export type MetaWebhookEventStatus = "received" | "queued" | "processed" | "failed" | "rejected";
+
+export type MetaWebhookEventEntry = {
+  id?: string;
+  provider?: string;
+  objectType?: string;
+  sourceAccountId?: string;
+  externalEventId?: string;
+  payload: unknown;
+  status: MetaWebhookEventStatus;
+  errorMessage?: string;
+  receivedAt?: string;
+  processedAt?: string;
+  updatedAt?: string;
 };
 
 export type MechImportOptions = {
@@ -125,6 +142,7 @@ function getDrizzleDb() {
       instagramResponseProfileComments,
       instagramResponseProfileDms,
       instagramResponseLogs,
+      metaWebhookEvents,
     },
   });
 }
@@ -429,6 +447,10 @@ export function responseLogStorageKey(profile: string, suffix: string) {
   return `database/instagram-response-logs/${sanitizeProfile(profile)}/${suffix}.json`;
 }
 
+export function metaWebhookEventStorageKey(id: string) {
+  return `database/meta-webhook-events/${id}.json`;
+}
+
 export async function getInstagramResponseProfile(profile: string) {
   const normalizedProfile = sanitizeProfile(profile);
   const db = getDrizzleDb();
@@ -649,6 +671,75 @@ export async function recordInstagramResponse(profile: string, entry: InstagramR
   return { key, payload };
 }
 
+export async function recordMetaWebhookEvent(entry: MetaWebhookEventEntry) {
+  const timestamp = entry.updatedAt || new Date().toISOString();
+  const receivedAt = entry.receivedAt || timestamp;
+  const id = entry.id || crypto.randomUUID();
+  const payload = {
+    id,
+    provider: entry.provider || "meta",
+    objectType: entry.objectType || null,
+    sourceAccountId: entry.sourceAccountId || null,
+    externalEventId: entry.externalEventId || null,
+    status: entry.status,
+    payload: typeof entry.payload === "string" ? entry.payload : JSON.stringify(entry.payload),
+    errorMessage: entry.errorMessage || null,
+    receivedAt,
+    processedAt: entry.processedAt || null,
+    updatedAt: timestamp,
+  };
+
+  const db = getDrizzleDb();
+  if (db) {
+    await db.insert(metaWebhookEvents).values(payload);
+    return payload;
+  }
+
+  await put(metaWebhookEventStorageKey(id), payload);
+  return payload;
+}
+
+export async function updateMetaWebhookEventStatus(
+  id: string,
+  status: MetaWebhookEventStatus,
+  options: {
+    errorMessage?: string;
+    processedAt?: string;
+  } = {}
+) {
+  const timestamp = new Date().toISOString();
+  const processedAt =
+    options.processedAt || (status === "processed" || status === "failed" || status === "rejected" ? timestamp : null);
+
+  const db = getDrizzleDb();
+  if (db) {
+    await db
+      .update(metaWebhookEvents)
+      .set({
+        status,
+        errorMessage: options.errorMessage || null,
+        processedAt,
+        updatedAt: timestamp,
+      })
+      .where(eq(metaWebhookEvents.id, id));
+
+    return { id, status, errorMessage: options.errorMessage || null, processedAt, updatedAt: timestamp };
+  }
+
+  const key = metaWebhookEventStorageKey(id);
+  const existing = (await get(key)) || {};
+  const payload = {
+    ...existing,
+    id,
+    status,
+    errorMessage: options.errorMessage || null,
+    processedAt,
+    updatedAt: timestamp,
+  };
+  await put(key, payload);
+  return payload;
+}
+
 type DatabaseComponentEvent =
   | {
       fnName: "upsertInstagramResponseProfile";
@@ -672,6 +763,23 @@ type DatabaseComponentEvent =
         profile: string;
         entry: InstagramResponseLogEntry;
       };
+    }
+  | {
+      fnName: "recordMetaWebhookEvent";
+      params: {
+        entry: MetaWebhookEventEntry;
+      };
+    }
+  | {
+      fnName: "updateMetaWebhookEventStatus";
+      params: {
+        id: string;
+        status: MetaWebhookEventStatus;
+        options?: {
+          errorMessage?: string;
+          processedAt?: string;
+        };
+      };
     };
 
 export async function run(event: DatabaseComponentEvent) {
@@ -689,6 +797,14 @@ export async function run(event: DatabaseComponentEvent) {
 
   if (event.fnName === "recordInstagramResponse") {
     return recordInstagramResponse(event.params.profile, event.params.entry);
+  }
+
+  if (event.fnName === "recordMetaWebhookEvent") {
+    return recordMetaWebhookEvent(event.params.entry);
+  }
+
+  if (event.fnName === "updateMetaWebhookEventStatus") {
+    return updateMetaWebhookEventStatus(event.params.id, event.params.status, event.params.options);
   }
 
   throw new Error(`Unsupported database event: ${JSON.stringify(event)}`);

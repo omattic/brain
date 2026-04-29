@@ -17,6 +17,8 @@ vi.mock('brain-sdk', async (importOriginal: any) => {
 vi.mock('brain-database', () => ({
   resolveInstagramResponse: vi.fn(async () => undefined),
   recordInstagramResponse: vi.fn(async () => undefined),
+  recordMetaWebhookEvent: vi.fn(async (entry: any) => ({ id: 'evt-1', ...entry })),
+  updateMetaWebhookEventStatus: vi.fn(async () => undefined),
 }));
 
 import worker from '../worker';
@@ -82,7 +84,7 @@ describe('meta worker webhook security', () => {
     expect(response.status).toBe(200);
     expect(workerMocks.sendToBus).toHaveBeenCalledWith('meta', {
       event: { object: 'instagram', entry: [] },
-      context: {},
+      context: { webhookEventId: 'evt-1' },
     });
   });
 

@@ -15,6 +15,10 @@ vi.mock('../redirectMessageToSlack', () => ({
   redirectMessageToSlackChat: metaMocks.redirectMessageToSlackChat,
 }));
 
+vi.mock('brain-database', () => ({
+  updateMetaWebhookEventStatus: vi.fn(async () => undefined),
+}));
+
 import { run } from '../index';
 import { event as payload } from './events/sendDirectMessageIG.event';
 

@@ -25,10 +25,12 @@ import {
   normalizeResponseRules,
   parseMechDocument,
   profileStorageKey,
+  recordMetaWebhookEvent,
   recordInstagramResponse,
   resetDatabaseRuntimeState,
   resolveInstagramResponse,
   seedInstagramResponseProfileFromMech,
+  updateMetaWebhookEventStatus,
 } from "../index";
 
 class MockD1Database {
@@ -36,6 +38,7 @@ class MockD1Database {
   commentRows = new Map<string, any>();
   dmRows = new Map<string, any>();
   logRows = new Map<string, any>();
+  webhookEventRows = new Map<string, any>();
   schemaExecutions = 0;
 
   exec = vi.fn(async (_query: string) => {
@@ -203,6 +206,34 @@ class MockD1Database {
             payload: String(statement._bound[5]),
             recordedAt: String(statement._bound[6]),
           });
+          return { success: true };
+        }
+
+        if (normalizedQuery.includes("insert into \"meta_webhook_events\"")) {
+          db.webhookEventRows.set(String(statement._bound[0]), {
+            id: String(statement._bound[0]),
+            provider: String(statement._bound[1]),
+            objectType: statement._bound[2] ? String(statement._bound[2]) : null,
+            sourceAccountId: statement._bound[3] ? String(statement._bound[3]) : null,
+            externalEventId: statement._bound[4] ? String(statement._bound[4]) : null,
+            status: String(statement._bound[5]),
+            payload: String(statement._bound[6]),
+            errorMessage: statement._bound[7] ? String(statement._bound[7]) : null,
+            receivedAt: String(statement._bound[8]),
+            processedAt: statement._bound[9] ? String(statement._bound[9]) : null,
+            updatedAt: String(statement._bound[10]),
+          });
+          return { success: true };
+        }
+
+        if (normalizedQuery.includes("update \"meta_webhook_events\"")) {
+          const row = db.webhookEventRows.get(String(statement._bound[4]));
+          if (row) {
+            row.status = String(statement._bound[0]);
+            row.errorMessage = statement._bound[1] ? String(statement._bound[1]) : null;
+            row.processedAt = statement._bound[2] ? String(statement._bound[2]) : null;
+            row.updatedAt = String(statement._bound[3]);
+          }
           return { success: true };
         }
 
@@ -413,6 +444,28 @@ describe("database component", () => {
     expect(log.key).toContain("database/instagram-response-logs/channel-a/");
     expect(d1.logRows.get(log.key)).toBeTruthy();
     expect(objectStore.size).toBe(0);
+
+    const webhookEvent = await recordMetaWebhookEvent({
+      id: "evt-1",
+      objectType: "instagram",
+      sourceAccountId: "17841401707784079",
+      externalEventId: "18078326191704425",
+      payload: { object: "instagram", entry: [] },
+      status: "received",
+    });
+
+    expect(d1.webhookEventRows.get("evt-1")).toMatchObject({
+      id: "evt-1",
+      status: "received",
+      objectType: "instagram",
+    });
+
+    await updateMetaWebhookEventStatus(webhookEvent.id, "processed");
+
+    expect(d1.webhookEventRows.get("evt-1")).toMatchObject({
+      id: "evt-1",
+      status: "processed",
+    });
   });
 
   it("seeds a profile directly from the mech document", async () => {

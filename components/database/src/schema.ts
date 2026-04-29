@@ -69,3 +69,31 @@ export const instagramResponseLogs = sqliteTable(
     ),
   })
 );
+
+export const metaWebhookEvents = sqliteTable(
+  "meta_webhook_events",
+  {
+    id: text("id").primaryKey(),
+    provider: text("provider").notNull(),
+    objectType: text("object_type"),
+    sourceAccountId: text("source_account_id"),
+    externalEventId: text("external_event_id"),
+    status: text("status").notNull(),
+    payload: text("payload").notNull(),
+    errorMessage: text("error_message"),
+    receivedAt: text("received_at").notNull(),
+    processedAt: text("processed_at"),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => ({
+    statusUpdatedAtIdx: index("idx_meta_webhook_events_status_updated_at").on(
+      table.status,
+      table.updatedAt
+    ),
+    objectReceivedAtIdx: index("idx_meta_webhook_events_object_received_at").on(
+      table.objectType,
+      table.receivedAt
+    ),
+    externalEventIdx: index("idx_meta_webhook_events_external_event_id").on(table.externalEventId),
+  })
+);
