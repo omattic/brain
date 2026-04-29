@@ -25,7 +25,7 @@ export function getLogoutUrl(redirectUri: string) {
 }
 
 export async function getSession() {
-  return request<{ authenticated: boolean; user: AdminSession }>("/api/session");
+  return request<{ authenticated: boolean; user: AdminSession; isSuperAdmin?: boolean; tenantIds?: string[] }>("/api/session");
 }
 
 export async function getTenants() {

@@ -55,8 +55,13 @@ export function DashboardPage() {
   async function requireSession() {
     const { response, payload } = await getSession();
     if (response.ok && payload?.authenticated && payload.user) {
-      setSession(payload.user);
-      return payload.user;
+      const nextSession = {
+        ...payload.user,
+        isSuperAdmin: Boolean(payload.isSuperAdmin),
+        tenantIds: payload.tenantIds || [],
+      };
+      setSession(nextSession);
+      return nextSession;
     }
 
     window.location.replace(getLoginUrl(redirectUri));
@@ -260,10 +265,16 @@ export function DashboardPage() {
             <Badge>Create</Badge>
             <h2 className="text-xl font-semibold text-slate-950">Tenant</h2>
           </div>
-          <Input placeholder="Ingles Con Liza" value={tenantName} onChange={(event) => setTenantName(event.target.value)} />
-          <Input placeholder="ingles-con-liza" value={tenantSlug} onChange={(event) => setTenantSlug(event.target.value)} />
-          <Textarea placeholder="Primary tenant for Instagram automation" value={tenantDescription} onChange={(event) => setTenantDescription(event.target.value)} />
-          <Button onClick={() => void onCreateTenant()}>Create Tenant</Button>
+          {session?.isSuperAdmin ? (
+            <>
+              <Input placeholder="Ingles Con Liza" value={tenantName} onChange={(event) => setTenantName(event.target.value)} />
+              <Input placeholder="ingles-con-liza" value={tenantSlug} onChange={(event) => setTenantSlug(event.target.value)} />
+              <Textarea placeholder="Primary tenant for Instagram automation" value={tenantDescription} onChange={(event) => setTenantDescription(event.target.value)} />
+              <Button onClick={() => void onCreateTenant()}>Create Tenant</Button>
+            </>
+          ) : (
+            <p className="text-sm leading-6 text-slate-600">Only the super-admin can create new tenants.</p>
+          )}
         </Card>
 
         <Card className="space-y-4">
@@ -271,16 +282,22 @@ export function DashboardPage() {
             <Badge>Members</Badge>
             <h2 className="text-xl font-semibold text-slate-950">Invite by Email</h2>
           </div>
-          <select className="w-full rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900" value={memberTenantId} onChange={(event) => setMemberTenantId(event.target.value)}>
-            <option value="">Select tenant</option>
-            {tenants.map((tenant) => <option key={tenant.id} value={tenant.id}>{tenant.name}</option>)}
-          </select>
-          <Input placeholder="ops@omattic.com" value={memberEmail} onChange={(event) => setMemberEmail(event.target.value)} />
-          <Input placeholder="admin" value={memberRole} onChange={(event) => setMemberRole(event.target.value)} />
-          <Button onClick={() => void onAddMember()} className="gap-2">
-            <UserPlus className="h-4 w-4" />
-            Add Member
-          </Button>
+          {session?.isSuperAdmin ? (
+            <>
+              <select className="w-full rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900" value={memberTenantId} onChange={(event) => setMemberTenantId(event.target.value)}>
+                <option value="">Select tenant</option>
+                {tenants.map((tenant) => <option key={tenant.id} value={tenant.id}>{tenant.name}</option>)}
+              </select>
+              <Input placeholder="ops@omattic.com" value={memberEmail} onChange={(event) => setMemberEmail(event.target.value)} />
+              <Input placeholder="admin" value={memberRole} onChange={(event) => setMemberRole(event.target.value)} />
+              <Button onClick={() => void onAddMember()} className="gap-2">
+                <UserPlus className="h-4 w-4" />
+                Add Member
+              </Button>
+            </>
+          ) : (
+            <p className="text-sm leading-6 text-slate-600">Only the super-admin can add the first tenant users and memberships.</p>
+          )}
         </Card>
 
         <Card className="space-y-4">
@@ -327,12 +344,15 @@ export function DashboardPage() {
           <div className="grid gap-4">
             {tenants.map((tenant) => (
               <div key={tenant.id} className="rounded-[22px] border border-slate-200 bg-slate-50 p-4">
-                <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <div className="text-lg font-semibold text-slate-950">{tenant.name}</div>
                     <div className="text-sm text-slate-500">{tenant.slug}</div>
                   </div>
-                  <Badge>{tenant.status}</Badge>
+                  <div className="flex gap-2">
+                    <Badge>{tenant.status}</Badge>
+                    {session?.isSuperAdmin ? <Badge className="border-amber-200 bg-amber-50 text-amber-700">Super-admin</Badge> : null}
+                  </div>
                 </div>
                 <p className="mb-4 text-sm text-slate-600">{tenant.description || "No description."}</p>
                 <div className="grid gap-4 md:grid-cols-3">

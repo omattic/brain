@@ -12,6 +12,7 @@ import {
   getTenantById,
   listMetaWebhookEvents,
   listTenantComponentConfigs,
+  listTenantMembershipsByEmail,
   listTenantMembers,
   listTenantMetaAccounts,
   listTenants,
@@ -34,6 +35,9 @@ interface Env extends Record<string, unknown> {
   META_QUEUE: CloudflareQueueLike;
   ASSETS: AssetFetcher;
 }
+
+const SUPER_ADMIN_EMAIL = "guerrerocarlos@gmail.com";
+const TENANT_WRITE_ROLES = new Set(["owner", "admin", "editor"]);
 
 function configureCloudflareRuntime(env: Env) {
   if (typeof process !== "undefined") {
@@ -92,9 +96,10 @@ async function loadTenantBundle(tenantId: string) {
   };
 }
 
-async function loadAllTenantBundles() {
+async function loadAllTenantBundles(tenantIds?: string[]) {
   const rows = await listTenants();
-  return Promise.all(rows.map((tenant) => loadTenantBundle(tenant.id)));
+  const filteredRows = tenantIds?.length ? rows.filter((tenant) => tenantIds.includes(tenant.id)) : rows;
+  return Promise.all(filteredRows.map((tenant) => loadTenantBundle(tenant.id)));
 }
 
 async function syncTenantConfigCache(env: Env, tenantId: string, component: string) {
@@ -161,19 +166,90 @@ async function requireSession(request: Request) {
   };
 }
 
+function isSuperAdmin(session: { email: string }) {
+  return session.email === SUPER_ADMIN_EMAIL;
+}
+
+function canWriteTenantRole(role: string | undefined | null) {
+  return TENANT_WRITE_ROLES.has(`${role || ""}`.trim().toLowerCase());
+}
+
+async function getSessionAccess(session: { email: string }) {
+  const superAdmin = isSuperAdmin(session);
+  const memberships = superAdmin ? [] : await listTenantMembershipsByEmail(session.email);
+  const activeMemberships = memberships.filter((membership) => membership.status === "active");
+  const tenantIds = activeMemberships.map((membership) => membership.tenantId);
+
+  return {
+    superAdmin,
+    memberships: activeMemberships,
+    tenantIds,
+  };
+}
+
+async function requireTenantReadAccess(session: { email: string }, tenantId: string) {
+  const access = await getSessionAccess(session);
+  if (access.superAdmin) {
+    return { ok: true as const, access };
+  }
+
+  if (access.tenantIds.includes(tenantId)) {
+    return { ok: true as const, access };
+  }
+
+  return {
+    ok: false as const,
+    response: json({ error: "Forbidden" }, { status: 403 }),
+  };
+}
+
+async function requireTenantWriteAccess(session: { email: string }, tenantId: string) {
+  const readAccess = await requireTenantReadAccess(session, tenantId);
+  if (!readAccess.ok) {
+    return readAccess;
+  }
+
+  if (readAccess.access.superAdmin) {
+    return readAccess;
+  }
+
+  const membership = readAccess.access.memberships.find((entry) => entry.tenantId === tenantId) || null;
+  if (membership && canWriteTenantRole(membership.role)) {
+    return readAccess;
+  }
+
+  return {
+    ok: false as const,
+    response: json({ error: "Forbidden" }, { status: 403 }),
+  };
+}
+
+function requireSuperAdmin(session: { email: string }) {
+  if (isSuperAdmin(session)) {
+    return null;
+  }
+
+  return json({ error: "Forbidden" }, { status: 403 });
+}
+
 async function recoverEvents(request: Request) {
   const { session, response } = await requireSession(request);
   if (response) return response;
+  const access = await getSessionAccess(session);
 
   const body = await parseJson(request);
   const limit = Math.max(1, Math.min(Number(body?.limit) || 25, 100));
-  const events = await listMetaWebhookEvents({
+  let events = await listMetaWebhookEvents({
     status: "failed",
     tenantId: body?.tenantId,
     sourceAccountId: body?.sourceAccountId,
     eventIds: Array.isArray(body?.eventIds) ? body.eventIds.filter(Boolean) : undefined,
     limit,
   });
+
+  if (!access.superAdmin) {
+    events = events.filter((event) => event.tenantId && access.tenantIds.includes(event.tenantId));
+  }
 
   const replayed: string[] = [];
   const replayErrors: Array<{ id: string; error: string }> = [];
@@ -229,19 +305,27 @@ export default {
     const session = authResult.session!;
 
     if (url.pathname === "/api/session" && request.method === "GET") {
+      const access = await getSessionAccess(session);
       return json({
         authenticated: true,
         user: session,
+        isSuperAdmin: access.superAdmin,
+        tenantIds: access.tenantIds,
       });
     }
 
     if (url.pathname === "/api/tenants" && request.method === "GET") {
+      const access = await getSessionAccess(session);
       return json({
-        tenants: (await loadAllTenantBundles()).filter(Boolean),
+        tenants: (await loadAllTenantBundles(access.superAdmin ? undefined : access.tenantIds)).filter(Boolean),
       });
     }
 
     if (url.pathname === "/api/tenants" && request.method === "POST") {
+      const forbidden = requireSuperAdmin(session);
+      if (forbidden) {
+        return forbidden;
+      }
       const body = await parseJson(request);
       if (!body?.name) {
         return json({ error: "Tenant name is required" }, { status: 400 });
@@ -259,6 +343,10 @@ export default {
     }
 
     if (segments[0] === "api" && segments[1] === "tenants" && segments[2] && request.method === "GET" && segments.length === 3) {
+      const accessCheck = await requireTenantReadAccess(session, segments[2]);
+      if (!accessCheck.ok) {
+        return accessCheck.response;
+      }
       const tenant = await loadTenantBundle(segments[2]);
       if (!tenant) {
         return json({ error: "Tenant not found" }, { status: 404 });
@@ -268,6 +356,10 @@ export default {
     }
 
     if (segments[0] === "api" && segments[1] === "tenants" && segments[2] && segments[3] === "members" && request.method === "POST") {
+      const forbidden = requireSuperAdmin(session);
+      if (forbidden) {
+        return forbidden;
+      }
       const body = await parseJson(request);
       if (!body?.email) {
         return json({ error: "Member email is required" }, { status: 400 });
@@ -283,6 +375,10 @@ export default {
     }
 
     if (segments[0] === "api" && segments[1] === "tenants" && segments[2] && segments[3] === "meta-accounts" && request.method === "POST") {
+      const accessCheck = await requireTenantWriteAccess(session, segments[2]);
+      if (!accessCheck.ok) {
+        return accessCheck.response;
+      }
       const body = await parseJson(request);
       if (!body?.accountId) {
         return json({ error: "Meta account id is required" }, { status: 400 });
@@ -301,6 +397,10 @@ export default {
     }
 
     if (segments[0] === "api" && segments[1] === "tenants" && segments[2] && segments[3] === "configs" && request.method === "GET") {
+      const accessCheck = await requireTenantReadAccess(session, segments[2]);
+      if (!accessCheck.ok) {
+        return accessCheck.response;
+      }
       return json({
         configs: await listTenantComponentConfigs(segments[2], {
           component: url.searchParams.get("component") || undefined,
@@ -309,6 +409,10 @@ export default {
     }
 
     if (segments[0] === "api" && segments[1] === "tenants" && segments[2] && segments[3] === "configs" && request.method === "PUT") {
+      const accessCheck = await requireTenantWriteAccess(session, segments[2]);
+      if (!accessCheck.ok) {
+        return accessCheck.response;
+      }
       const body = await parseJson(request);
       if (!body?.component || !body?.key) {
         return json({ error: "Component and key are required" }, { status: 400 });
@@ -327,13 +431,20 @@ export default {
     }
 
     if (url.pathname === "/api/monitoring/meta-webhook-events" && request.method === "GET") {
-      return json({
-        events: await listMetaWebhookEvents({
+      const access = await getSessionAccess(session);
+      let events = await listMetaWebhookEvents({
           status: (url.searchParams.get("status") as any) || undefined,
           tenantId: url.searchParams.get("tenantId") || undefined,
           sourceAccountId: url.searchParams.get("sourceAccountId") || undefined,
           limit: Number(url.searchParams.get("limit") || "25"),
-        }),
+        });
+
+      if (!access.superAdmin) {
+        events = events.filter((event) => event.tenantId && access.tenantIds.includes(event.tenantId));
+      }
+
+      return json({
+        events,
       });
     }
 
@@ -341,6 +452,10 @@ export default {
       const event = await getMetaWebhookEventById(segments[3]);
       if (!event) {
         return json({ error: "Webhook event not found" }, { status: 404 });
+      }
+      const access = await getSessionAccess(session);
+      if (!access.superAdmin && (!event.tenantId || !access.tenantIds.includes(event.tenantId))) {
+        return json({ error: "Forbidden" }, { status: 403 });
       }
       return json({ event });
     }

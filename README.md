@@ -82,6 +82,7 @@ Notes:
 - `GET /` serves the React frontend from `components/admin/frontend/dist` through Cloudflare `ASSETS`.
 - the frontend verifies the shared Omattic auth session on load and redirects to `auth.omattic.com` automatically when no valid session is present
 - `/api/*` routes accept the shared `session_token` cookie or a bearer JWT and verify it through `auth.omattic.com`
+- `guerrerocarlos@gmail.com` is the fixed super-admin with global read/write access; other users are constrained to their tenant memberships and roles
 
 ### Not Publicly Routed
 

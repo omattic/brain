@@ -2,6 +2,8 @@ export type AdminSession = {
   email: string;
   name?: string;
   domain?: string;
+  isSuperAdmin?: boolean;
+  tenantIds?: string[];
 };
 
 export type TenantMember = {

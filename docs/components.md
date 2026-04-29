@@ -27,6 +27,7 @@ Notes:
 - serves the frontend through Cloudflare `ASSETS`
 - frontend auto-redirects to `auth.omattic.com` when the shared auth session is missing
 - protects `/api/*` with session-cookie or bearer-token verification against `auth.omattic.com`
+- `guerrerocarlos@gmail.com` is the fixed super-admin; tenant members are limited by role (`viewer` for read-only, `editor`/`admin`/`owner` for write)
 - manages tenants, tenant members, tenant Meta account mappings, and tenant component config
 - can inspect and replay failed `meta_webhook_events`
 

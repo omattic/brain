@@ -31,6 +31,33 @@ const databaseMocks = vi.hoisted(() => ({
       : null
   ),
   listTenantMembers: vi.fn(async () => []),
+  listTenantMembershipsByEmail: vi.fn(async (email: string) =>
+    email === "viewer@omattic.com"
+      ? [
+          {
+            id: "membership-1",
+            tenantId: "tenant-1",
+            email,
+            role: "viewer",
+            status: "active",
+            createdAt: "2026-04-29T00:00:00.000Z",
+            updatedAt: "2026-04-29T00:00:00.000Z",
+          },
+        ]
+      : email === "editor@omattic.com"
+        ? [
+            {
+              id: "membership-2",
+              tenantId: "tenant-1",
+              email,
+              role: "editor",
+              status: "active",
+              createdAt: "2026-04-29T00:00:00.000Z",
+              updatedAt: "2026-04-29T00:00:00.000Z",
+            },
+          ]
+        : []
+  ),
   listTenantMetaAccounts: vi.fn(async () => []),
   listTenantComponentConfigs: vi.fn(async () => []),
   createTenant: vi.fn(async (input: any) => ({
@@ -136,12 +163,21 @@ describe("admin worker", () => {
     process.env.ADMIN_AUTH_VERIFY_URL = "https://auth.omattic.com/verify";
     vi.stubGlobal(
       "fetch",
-      vi.fn(async (input: any) => {
+      vi.fn(async (input: any, init?: any) => {
         if (`${input}` === process.env.ADMIN_AUTH_VERIFY_URL) {
+          const cookieHeader = init?.headers?.cookie || "";
+          const authHeader = init?.headers?.authorization || "";
+          let email = "guerrerocarlos@gmail.com";
+          if (`${cookieHeader}`.includes("viewer-token") || `${authHeader}`.includes("viewer-token")) {
+            email = "viewer@omattic.com";
+          }
+          if (`${cookieHeader}`.includes("editor-token") || `${authHeader}`.includes("editor-token")) {
+            email = "editor@omattic.com";
+          }
           return Response.json({
             authenticated: true,
             user: {
-              email: "admin@omattic.com",
+              email,
               name: "Admin",
               domain: "omattic.com",
             },
@@ -197,6 +233,27 @@ describe("admin worker", () => {
     expect(payload.tenants[0].id).toBe("tenant-1");
   });
 
+  it("filters tenants for non-super-admin members", async () => {
+    const response = await worker.fetch(
+      new Request("https://brain-admin.omattic.com/api/tenants", {
+        headers: {
+          cookie: "session_token=viewer-token",
+        },
+      }),
+      {
+        BRAIN_DB: {} as any,
+        BRAIN_CONFIG: kvMock as any,
+        META_QUEUE: {} as any,
+        ASSETS: assetsMock as any,
+      }
+    );
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.tenants).toHaveLength(1);
+    expect(databaseMocks.listTenantMembershipsByEmail).toHaveBeenCalledWith("viewer@omattic.com");
+  });
+
   it("writes tenant config and mirrors it into KV cache", async () => {
     const response = await worker.fetch(
       new Request("https://brain-admin.omattic.com/api/tenants/tenant-1/configs", {
@@ -225,6 +282,102 @@ describe("admin worker", () => {
     expect(response.status).toBe(200);
     expect(databaseMocks.upsertTenantComponentConfig).toHaveBeenCalled();
     expect(kvMock.put).toHaveBeenCalled();
+  });
+
+  it("blocks tenant creation for non-super-admin users", async () => {
+    const response = await worker.fetch(
+      new Request("https://brain-admin.omattic.com/api/tenants", {
+        method: "POST",
+        headers: {
+          cookie: "session_token=editor-token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ name: "Blocked Tenant" }),
+      }),
+      {
+        BRAIN_DB: {} as any,
+        BRAIN_CONFIG: kvMock as any,
+        META_QUEUE: {} as any,
+        ASSETS: assetsMock as any,
+      }
+    );
+
+    expect(response.status).toBe(403);
+    expect(databaseMocks.createTenant).not.toHaveBeenCalled();
+  });
+
+  it("blocks member creation for non-super-admin users", async () => {
+    const response = await worker.fetch(
+      new Request("https://brain-admin.omattic.com/api/tenants/tenant-1/members", {
+        method: "POST",
+        headers: {
+          cookie: "session_token=editor-token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ email: "new@omattic.com" }),
+      }),
+      {
+        BRAIN_DB: {} as any,
+        BRAIN_CONFIG: kvMock as any,
+        META_QUEUE: {} as any,
+        ASSETS: assetsMock as any,
+      }
+    );
+
+    expect(response.status).toBe(403);
+    expect(databaseMocks.addTenantMember).not.toHaveBeenCalled();
+  });
+
+  it("blocks write access for read-only tenant members", async () => {
+    const response = await worker.fetch(
+      new Request("https://brain-admin.omattic.com/api/tenants/tenant-1/configs", {
+        method: "PUT",
+        headers: {
+          cookie: "session_token=viewer-token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          component: "meta",
+          key: "INSTAGRAM_RESPONSE_PROFILE",
+          value: "tenantprofile",
+        }),
+      }),
+      {
+        BRAIN_DB: {} as any,
+        BRAIN_CONFIG: kvMock as any,
+        META_QUEUE: {} as any,
+        ASSETS: assetsMock as any,
+      }
+    );
+
+    expect(response.status).toBe(403);
+    expect(databaseMocks.upsertTenantComponentConfig).not.toHaveBeenCalled();
+  });
+
+  it("allows write access for tenant editors", async () => {
+    const response = await worker.fetch(
+      new Request("https://brain-admin.omattic.com/api/tenants/tenant-1/configs", {
+        method: "PUT",
+        headers: {
+          cookie: "session_token=editor-token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          component: "meta",
+          key: "INSTAGRAM_RESPONSE_PROFILE",
+          value: "tenantprofile",
+        }),
+      }),
+      {
+        BRAIN_DB: {} as any,
+        BRAIN_CONFIG: kvMock as any,
+        META_QUEUE: {} as any,
+        ASSETS: assetsMock as any,
+      }
+    );
+
+    expect(response.status).toBe(200);
+    expect(databaseMocks.upsertTenantComponentConfig).toHaveBeenCalled();
   });
 
   it("replays failed webhook events through the meta queue", async () => {

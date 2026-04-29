@@ -1016,6 +1016,28 @@ export async function listTenantMembers(tenantId: string) {
   return rows.sort((a, b) => a.email.localeCompare(b.email));
 }
 
+export async function listTenantMembershipsByEmail(email: string) {
+  const normalizedEmail = normalizeEmail(email);
+  const db = getDrizzleDb();
+  if (db) {
+    const rows = await db
+      .select()
+      .from(tenantMembers)
+      .where(eq(tenantMembers.email, normalizedEmail))
+      .orderBy(asc(tenantMembers.tenantId), asc(tenantMembers.email));
+    return rows as TenantMember[];
+  }
+
+  const tenants = await listTenants();
+  const memberships = await Promise.all(tenants.map((tenant) => listTenantMembers(tenant.id)));
+  return memberships.flat().filter((member) => member.email === normalizedEmail);
+}
+
+export async function getTenantMembership(tenantId: string, email: string) {
+  const memberships = await listTenantMembershipsByEmail(email);
+  return memberships.find((membership) => membership.tenantId === tenantId) || null;
+}
+
 export async function addTenantMember(
   tenantId: string,
   input: {
