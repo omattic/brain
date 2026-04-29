@@ -33,6 +33,8 @@ Documented resources currently referenced by this repo:
 
 ### KV
 
+- `BRAIN_CONFIG`
+  - `id`: `90939e8e10f14dbcae541481245ea258`
 - `META_TOKENS`
   - `id`: `63b75363bbef45bea09a75cb7143e0cc`
 - `SLACK_CONFIG`
@@ -50,6 +52,13 @@ Bound in:
 
 - `database`
 - `support`
+- `admin`
+
+### `BRAIN_CONFIG`
+
+Bound in:
+
+- `admin`
 
 ### `META_TOKENS`
 

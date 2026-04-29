@@ -89,6 +89,24 @@ Routes:
 - `POST /menus`
 - `GET /health`
 
+### Admin
+
+Base:
+
+- `https://brain-admin.omattic.com`
+
+Routes:
+
+- `GET /`
+- `GET /health`
+- `GET|POST|PUT /api/*`
+
+Behavior:
+
+- `GET /` serves the management dashboard shell
+- every `/api/*` route requires a JWT and verifies it against `auth.omattic.com`
+- the monitoring routes can list and replay failed `meta_webhook_events`
+
 ## No Public Webhook Route
 
 - `brain`

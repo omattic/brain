@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { get, getRuntimeConfig, put } from "brain-sdk";
 import {
@@ -7,6 +7,10 @@ import {
   instagramResponseProfileComments,
   instagramResponseProfileDms,
   instagramResponseProfiles,
+  tenantComponentConfigs,
+  tenantMembers,
+  tenantMetaAccounts,
+  tenants,
 } from "./schema";
 
 const D1_DATABASE_NAME = "brain";
@@ -94,6 +98,71 @@ export type MechImportOptions = {
   seedEmptyHashtagAsDefault?: boolean;
 };
 
+export type TenantStatus = "active" | "disabled";
+
+export type Tenant = {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  status: TenantStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TenantMemberStatus = "invited" | "active" | "disabled";
+
+export type TenantMember = {
+  id: string;
+  tenantId: string;
+  email: string;
+  role: string;
+  status: TenantMemberStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TenantMetaAccountStatus = "active" | "disabled";
+
+export type TenantMetaAccount = {
+  id: string;
+  tenantId: string;
+  provider: string;
+  accountId: string;
+  username?: string | null;
+  label?: string | null;
+  status: TenantMetaAccountStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TenantComponentConfig = {
+  id: string;
+  tenantId: string;
+  component: string;
+  key: string;
+  value: string;
+  isSecret: boolean;
+  isJson: boolean;
+  updatedByEmail?: string | null;
+  updatedAt: string;
+};
+
+export type TenantComponentConfigInput = {
+  component: string;
+  key: string;
+  value: unknown;
+  isSecret?: boolean;
+  updatedByEmail?: string;
+};
+
+export type AdminMetaWebhookEvent = StoredMetaWebhookEvent & {
+  tenantId?: string | null;
+  tenantName?: string | null;
+  metaAccountId?: string | null;
+  metaAccountUsername?: string | null;
+};
+
 type D1TextRow = {
   id: string;
   profile: string;
@@ -111,6 +180,54 @@ function sanitizeProfile(profile: string) {
     .toLowerCase()
     .replace(/[^a-z0-9_-]+/g, "-")
     .replace(/^-+|-+$/g, "") || "default";
+}
+
+function sanitizeSlug(value: string) {
+  return `${value || ""}`
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "tenant";
+}
+
+function normalizeComponentName(component: string) {
+  return `${component || "unknown"}`.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-");
+}
+
+function normalizeConfigKey(key: string) {
+  return `${key || ""}`.trim().toUpperCase().replace(/[^A-Z0-9_]+/g, "_");
+}
+
+function normalizeEmail(email: string) {
+  return `${email || ""}`.trim().toLowerCase();
+}
+
+function serializeConfigValue(value: unknown) {
+  if (typeof value === "string") {
+    return { value, isJson: false };
+  }
+
+  return {
+    value: JSON.stringify(value ?? null),
+    isJson: true,
+  };
+}
+
+function parseConfigValue(row: { value: string; isJson: boolean | number }) {
+  const shouldParse = row.isJson === true || row.isJson === 1;
+  if (!shouldParse) {
+    return row.value;
+  }
+
+  try {
+    return JSON.parse(row.value);
+  } catch {
+    return row.value;
+  }
+}
+
+function tenantConfigId(tenantId: string, component: string, key: string) {
+  return `${tenantId}:${normalizeComponentName(component)}:${normalizeConfigKey(key)}`;
 }
 
 function normalizeTextArray(value: string[] | string | undefined) {
@@ -157,6 +274,10 @@ function getDrizzleDb() {
       instagramResponseProfileDms,
       instagramResponseLogs,
       metaWebhookEvents,
+      tenants,
+      tenantMembers,
+      tenantMetaAccounts,
+      tenantComponentConfigs,
     },
   });
 }
@@ -760,21 +881,370 @@ export async function listMetaWebhookEventsByStatus(
     limit?: number;
   } = {}
 ) {
+  return listMetaWebhookEvents({
+    status,
+    limit: options.limit,
+  });
+}
+
+export async function listMetaWebhookEvents(
+  options: {
+    status?: MetaWebhookEventStatus;
+    tenantId?: string;
+    sourceAccountId?: string;
+    eventIds?: string[];
+    limit?: number;
+  } = {}
+) {
   const limit = Math.max(1, Math.min(options.limit || 25, 100));
   const db = getDrizzleDb();
 
   if (db) {
+    const conditions = [];
+    if (options.status) {
+      conditions.push(eq(metaWebhookEvents.status, options.status));
+    }
+    if (options.sourceAccountId) {
+      conditions.push(eq(metaWebhookEvents.sourceAccountId, options.sourceAccountId));
+    }
+    if (options.tenantId) {
+      conditions.push(eq(tenantMetaAccounts.tenantId, options.tenantId));
+    }
+    if (options.eventIds?.length) {
+      conditions.push(inArray(metaWebhookEvents.id, options.eventIds));
+    }
+
     const rows = await db
-      .select()
+      .select({
+        id: metaWebhookEvents.id,
+        provider: metaWebhookEvents.provider,
+        objectType: metaWebhookEvents.objectType,
+        sourceAccountId: metaWebhookEvents.sourceAccountId,
+        externalEventId: metaWebhookEvents.externalEventId,
+        status: metaWebhookEvents.status,
+        payload: metaWebhookEvents.payload,
+        errorMessage: metaWebhookEvents.errorMessage,
+        receivedAt: metaWebhookEvents.receivedAt,
+        processedAt: metaWebhookEvents.processedAt,
+        updatedAt: metaWebhookEvents.updatedAt,
+        tenantId: tenantMetaAccounts.tenantId,
+        metaAccountId: tenantMetaAccounts.id,
+        metaAccountUsername: tenantMetaAccounts.username,
+        tenantName: tenants.name,
+      })
       .from(metaWebhookEvents)
-      .where(eq(metaWebhookEvents.status, status))
+      .leftJoin(tenantMetaAccounts, eq(metaWebhookEvents.sourceAccountId, tenantMetaAccounts.accountId))
+      .leftJoin(tenants, eq(tenantMetaAccounts.tenantId, tenants.id))
+      .where(conditions.length ? and(...conditions) : undefined)
       .orderBy(desc(metaWebhookEvents.updatedAt))
       .limit(limit);
 
-    return rows as StoredMetaWebhookEvent[];
+    return rows as AdminMetaWebhookEvent[];
   }
 
   return [];
+}
+
+export async function getMetaWebhookEventById(id: string) {
+  const rows = await listMetaWebhookEvents({ eventIds: [id], limit: 1 });
+  return rows[0];
+}
+
+export async function listTenants() {
+  const db = getDrizzleDb();
+
+  if (db) {
+    const rows = await db.select().from(tenants).orderBy(asc(tenants.name));
+    return rows as Tenant[];
+  }
+
+  return (((await get("database/admin/tenants")) as Tenant[]) || []).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export async function createTenant(input: {
+  name: string;
+  slug?: string;
+  description?: string;
+  status?: TenantStatus;
+}) {
+  const timestamp = new Date().toISOString();
+  const tenant = {
+    id: crypto.randomUUID(),
+    name: input.name.trim(),
+    slug: sanitizeSlug(input.slug || input.name),
+    description: input.description?.trim() || null,
+    status: input.status || "active",
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  } satisfies Tenant;
+
+  const db = getDrizzleDb();
+  if (db) {
+    await db.insert(tenants).values(tenant);
+    return tenant;
+  }
+
+  const rows = (((await get("database/admin/tenants")) as Tenant[]) || []).filter(Boolean);
+  rows.push(tenant);
+  await put("database/admin/tenants", rows);
+  return tenant;
+}
+
+export async function getTenantById(tenantId: string) {
+  const db = getDrizzleDb();
+  if (db) {
+    const row = await db.select().from(tenants).where(eq(tenants.id, tenantId)).limit(1);
+    return (row[0] as Tenant | undefined) || null;
+  }
+
+  const rows = (((await get("database/admin/tenants")) as Tenant[]) || []).filter(Boolean);
+  return rows.find((row) => row.id === tenantId) || null;
+}
+
+export async function listTenantMembers(tenantId: string) {
+  const db = getDrizzleDb();
+  if (db) {
+    const rows = await db
+      .select()
+      .from(tenantMembers)
+      .where(eq(tenantMembers.tenantId, tenantId))
+      .orderBy(asc(tenantMembers.email));
+    return rows as TenantMember[];
+  }
+
+  const rows = (((await get(`database/admin/tenant-members/${tenantId}`)) as TenantMember[]) || []).filter(Boolean);
+  return rows.sort((a, b) => a.email.localeCompare(b.email));
+}
+
+export async function addTenantMember(
+  tenantId: string,
+  input: {
+    email: string;
+    role?: string;
+    status?: TenantMemberStatus;
+  }
+) {
+  const timestamp = new Date().toISOString();
+  const member = {
+    id: crypto.randomUUID(),
+    tenantId,
+    email: normalizeEmail(input.email),
+    role: `${input.role || "admin"}`.trim().toLowerCase(),
+    status: input.status || "invited",
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  } satisfies TenantMember;
+
+  const db = getDrizzleDb();
+  if (db) {
+    await db
+      .insert(tenantMembers)
+      .values(member)
+      .onConflictDoUpdate({
+        target: [tenantMembers.tenantId, tenantMembers.email],
+        set: {
+          role: member.role,
+          status: member.status,
+          updatedAt: timestamp,
+        },
+      });
+
+    const rows = await db
+      .select()
+      .from(tenantMembers)
+      .where(and(eq(tenantMembers.tenantId, tenantId), eq(tenantMembers.email, member.email)))
+      .limit(1);
+    return (rows[0] as TenantMember | undefined) || member;
+  }
+
+  const rows = (((await get(`database/admin/tenant-members/${tenantId}`)) as TenantMember[]) || []).filter(Boolean);
+  const existingIndex = rows.findIndex((row) => row.email === member.email);
+  if (existingIndex >= 0) {
+    rows[existingIndex] = {
+      ...rows[existingIndex],
+      role: member.role,
+      status: member.status,
+      updatedAt: timestamp,
+    };
+  } else {
+    rows.push(member);
+  }
+  await put(`database/admin/tenant-members/${tenantId}`, rows);
+  return existingIndex >= 0 ? rows[existingIndex] : member;
+}
+
+export async function listTenantMetaAccounts(tenantId: string) {
+  const db = getDrizzleDb();
+  if (db) {
+    const rows = await db
+      .select()
+      .from(tenantMetaAccounts)
+      .where(eq(tenantMetaAccounts.tenantId, tenantId))
+      .orderBy(asc(tenantMetaAccounts.provider), asc(tenantMetaAccounts.username));
+    return rows as TenantMetaAccount[];
+  }
+
+  const rows = (((await get(`database/admin/tenant-meta-accounts/${tenantId}`)) as TenantMetaAccount[]) || []).filter(Boolean);
+  return rows.sort((a, b) => `${a.provider}:${a.username || a.accountId}`.localeCompare(`${b.provider}:${b.username || b.accountId}`));
+}
+
+export async function registerTenantMetaAccount(
+  tenantId: string,
+  input: {
+    provider?: string;
+    accountId: string;
+    username?: string;
+    label?: string;
+    status?: TenantMetaAccountStatus;
+  }
+) {
+  const timestamp = new Date().toISOString();
+  const account = {
+    id: crypto.randomUUID(),
+    tenantId,
+    provider: normalizeComponentName(input.provider || "instagram"),
+    accountId: `${input.accountId}`.trim(),
+    username: input.username?.trim() || null,
+    label: input.label?.trim() || null,
+    status: input.status || "active",
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  } satisfies TenantMetaAccount;
+
+  const db = getDrizzleDb();
+  if (db) {
+    await db
+      .insert(tenantMetaAccounts)
+      .values(account)
+      .onConflictDoUpdate({
+        target: tenantMetaAccounts.accountId,
+        set: {
+          tenantId,
+          provider: account.provider,
+          username: account.username,
+          label: account.label,
+          status: account.status,
+          updatedAt: timestamp,
+        },
+      });
+
+    const rows = await db
+      .select()
+      .from(tenantMetaAccounts)
+      .where(eq(tenantMetaAccounts.accountId, account.accountId))
+      .limit(1);
+    return (rows[0] as TenantMetaAccount | undefined) || account;
+  }
+
+  const rows = (((await get(`database/admin/tenant-meta-accounts/${tenantId}`)) as TenantMetaAccount[]) || []).filter(Boolean);
+  const existingIndex = rows.findIndex((row) => row.accountId === account.accountId);
+  if (existingIndex >= 0) {
+    rows[existingIndex] = {
+      ...rows[existingIndex],
+      provider: account.provider,
+      username: account.username,
+      label: account.label,
+      status: account.status,
+      updatedAt: timestamp,
+    };
+  } else {
+    rows.push(account);
+  }
+  await put(`database/admin/tenant-meta-accounts/${tenantId}`, rows);
+  return existingIndex >= 0 ? rows[existingIndex] : account;
+}
+
+export async function listTenantComponentConfigs(
+  tenantId: string,
+  options: {
+    component?: string;
+  } = {}
+) {
+  const db = getDrizzleDb();
+  if (db) {
+    const conditions = [eq(tenantComponentConfigs.tenantId, tenantId)];
+    if (options.component) {
+      conditions.push(eq(tenantComponentConfigs.component, normalizeComponentName(options.component)));
+    }
+
+    const rows = await db
+      .select()
+      .from(tenantComponentConfigs)
+      .where(and(...conditions))
+      .orderBy(asc(tenantComponentConfigs.component), asc(tenantComponentConfigs.key));
+
+    return rows.map((row) => ({
+      ...row,
+      isSecret: row.isSecret === 1,
+      isJson: row.isJson === 1,
+      parsedValue: parseConfigValue(row),
+    }));
+  }
+
+  const rows = (((await get(`database/admin/tenant-configs/${tenantId}`)) as TenantComponentConfig[]) || []).filter(Boolean);
+  return rows
+    .filter((row) => !options.component || row.component === normalizeComponentName(options.component))
+    .sort((a, b) => `${a.component}:${a.key}`.localeCompare(`${b.component}:${b.key}`))
+    .map((row) => ({
+      ...row,
+      parsedValue: parseConfigValue(row),
+    }));
+}
+
+export async function upsertTenantComponentConfig(tenantId: string, input: TenantComponentConfigInput) {
+  const component = normalizeComponentName(input.component);
+  const key = normalizeConfigKey(input.key);
+  const timestamp = new Date().toISOString();
+  const serialized = serializeConfigValue(input.value);
+  const row = {
+    id: tenantConfigId(tenantId, component, key),
+    tenantId,
+    component,
+    key,
+    value: serialized.value,
+    isSecret: input.isSecret ? 1 : 0,
+    isJson: serialized.isJson ? 1 : 0,
+    updatedByEmail: input.updatedByEmail?.trim().toLowerCase() || null,
+    updatedAt: timestamp,
+  };
+
+  const db = getDrizzleDb();
+  if (db) {
+    await db
+      .insert(tenantComponentConfigs)
+      .values(row)
+      .onConflictDoUpdate({
+        target: [tenantComponentConfigs.tenantId, tenantComponentConfigs.component, tenantComponentConfigs.key],
+        set: {
+          value: row.value,
+          isSecret: row.isSecret,
+          isJson: row.isJson,
+          updatedByEmail: row.updatedByEmail,
+          updatedAt: timestamp,
+        },
+      });
+  } else {
+    const rows = (((await get(`database/admin/tenant-configs/${tenantId}`)) as TenantComponentConfig[]) || []).filter(Boolean);
+    const existingIndex = rows.findIndex((entry) => entry.component === component && entry.key === key);
+    const fallbackRow = {
+      ...row,
+      isSecret: row.isSecret === 1,
+      isJson: row.isJson === 1,
+    } satisfies TenantComponentConfig;
+    if (existingIndex >= 0) {
+      rows[existingIndex] = fallbackRow;
+    } else {
+      rows.push(fallbackRow);
+    }
+    await put(`database/admin/tenant-configs/${tenantId}`, rows);
+  }
+
+  return {
+    ...row,
+    isSecret: row.isSecret === 1,
+    isJson: row.isJson === 1,
+    parsedValue: parseConfigValue(row),
+  };
 }
 
 type DatabaseComponentEvent =

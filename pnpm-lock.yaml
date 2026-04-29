@@ -8,6 +8,31 @@ importers:
 
   .: {}
 
+  components/admin:
+    dependencies:
+      brain-database:
+        specifier: workspace:*
+        version: link:../database
+      brain-sdk:
+        specifier: workspace:*
+        version: link:../../packages/brain-sdk
+    devDependencies:
+      '@types/node':
+        specifier: ^18.15.0
+        version: 18.19.130
+      '@vitest/coverage-v8':
+        specifier: ^1.0.0
+        version: 1.6.1(vitest@1.6.1(@types/node@18.19.130))
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.0.0
+        version: 1.6.1(@types/node@18.19.130)
+      wrangler:
+        specifier: ^4.13.2
+        version: 4.85.0
+
   components/brain:
     dependencies:
       '@esbuild-plugins/node-resolve':

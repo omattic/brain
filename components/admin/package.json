@@ -1,0 +1,24 @@
+{
+  "name": "brain-admin",
+  "version": "0.1.0",
+  "description": "Administrative surface for the brain system",
+  "main": "src/worker.ts",
+  "scripts": {
+    "dev:worker": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "brain-database": "workspace:*",
+    "brain-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^18.15.0",
+    "@vitest/coverage-v8": "^1.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0",
+    "wrangler": "^4.13.2"
+  }
+}

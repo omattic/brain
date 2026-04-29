@@ -15,6 +15,7 @@ The repo is organized as deployable components under `components/` and shared ru
 ## Monorepo Layout
 
 - `components/brain`: core brain component
+- `components/admin`: tenant admin surface and monitoring UI
 - `components/database`: D1-backed data access and seed logic
 - `components/datetime`: datetime-related component and Slack-facing worker
 - `components/meta`: Meta / Instagram / WhatsApp ingress and outbound bridge
@@ -72,6 +73,15 @@ Notes:
 - `https://main--datetime-component.omattic.com/menus`
 - `https://main--datetime-component.omattic.com/health`
 
+### Admin
+
+- `https://brain-admin.omattic.com/`
+- `https://brain-admin.omattic.com/health`
+
+Notes:
+- `GET /` serves the management UI shell.
+- `/api/*` routes require a JWT verified through `auth.omattic.com`.
+
 ### Not Publicly Routed
 
 - `brain`
@@ -89,6 +99,7 @@ Those Workers do not currently have public custom-domain routes configured.
 
 Important KV namespaces currently in use:
 
+- `BRAIN_CONFIG`: tenant-scoped component config cache populated by `brain-admin`
 - `META_TOKENS`: Meta / Instagram access token storage
 - `SLACK_CONFIG`: Slack workspace routing and bot-token lookup
 
@@ -98,6 +109,8 @@ See [.env.example](/home/gnu/brain/.env.example:1) for the full local/dev surfac
 
 Key values by subsystem:
 
+- Admin:
+  - `ADMIN_AUTH_VERIFY_URL`
 - Slack:
   - `SLACK_BOT_TOKEN`
   - `SLACK_APP_TOKEN`
@@ -120,6 +133,7 @@ Key values by subsystem:
 
 Production note:
 - Meta and Slack workspace/runtime routing are intentionally moving away from static env vars and toward KV-backed configuration.
+- Tenant-scoped component config is now managed in D1 and mirrored into `BRAIN_CONFIG` KV by `brain-admin`.
 
 ## Deployments and Migrations
 

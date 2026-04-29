@@ -20,8 +20,13 @@ Common Worker bindings:
 Optional/additional bindings by component:
 
 - `BRAIN_DB`
+- `BRAIN_CONFIG`
 - `META_TOKENS`
 - `SLACK_CONFIG`
+
+### Admin
+
+- `ADMIN_AUTH_VERIFY_URL`
 
 ## Environment Variables
 
@@ -91,6 +96,16 @@ Workspace token key examples:
 - `slack/workspaces/default/bot-token`
 - `slack/workspaces/r3js/bot-token`
 
+### `BRAIN_CONFIG`
+
+Used for tenant-scoped component config cached out of D1 by `brain-admin`.
+
+Key examples:
+
+- `tenant-config/<tenantId>/meta`
+- `tenant-config/<tenantId>/meta/INSTAGRAM_ACCESS_TOKEN`
+- `tenant-config/<tenantId>/twilio/TWILIO_AUTH_TOKEN`
+
 ## D1
 
 Shared database binding:
@@ -101,6 +116,7 @@ Database ownership:
 
 - `components/database` owns migrations and schema
 - `components/support` consumes the same DB
+- `components/admin` manages tenant, account, and runtime-config records in the same DB
 
 ## Secrets vs Vars
 

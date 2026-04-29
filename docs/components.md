@@ -4,6 +4,7 @@
 
 | Component | Worker Name | Public Route | Primary Role | Persistent Resources |
 | --- | --- | --- | --- | --- |
+| `admin` | `brain-admin` | yes | tenant admin UI and API | D1, KV |
 | `brain` | `brain-brain` | none | core brain logic | R2 |
 | `database` | `brain-database` | health only | D1 access and seeding | R2, D1 |
 | `datetime` | `brain-datetime` | yes | datetime tools + Slack-style ingress shell | R2 |
@@ -11,6 +12,21 @@
 | `slack` | `brain-slack` | yes | Slack ingress and outbound messaging | R2, KV |
 | `support` | `brain-support` | yes | support logic and hashtag response handling | R2, D1 |
 | `twilio` | `brain-twilio` | yes | inbound SMS ingress | R2 |
+
+## `admin`
+
+Files:
+
+- [components/admin/src/worker.ts](/home/gnu/brain/components/admin/src/worker.ts:1)
+- [components/admin/src/auth.ts](/home/gnu/brain/components/admin/src/auth.ts:1)
+- [components/admin/src/html.ts](/home/gnu/brain/components/admin/src/html.ts:1)
+
+Notes:
+
+- serves `https://brain-admin.omattic.com`
+- protects `/api/*` with JWT verification against `auth.omattic.com`
+- manages tenants, tenant members, tenant Meta account mappings, and tenant component config
+- can inspect and replay failed `meta_webhook_events`
 
 ## `brain`
 
@@ -28,13 +44,14 @@ Notes:
 
 Files:
 
-- [components/database/src/database/index.ts](/home/gnu/brain/components/database/src/database/index.ts:1)
+- [components/database/src/index.ts](/home/gnu/brain/components/database/src/index.ts:1)
 - [components/database/src/worker.ts](/home/gnu/brain/components/database/src/worker.ts:1)
 - [components/database/migrations](/home/gnu/brain/components/database/migrations)
 
 Notes:
 
 - owns D1-backed response profile storage
+- owns the multi-tenant schema used by `brain-admin`
 - no public webhook surface
 - exposes `/health`
 

@@ -18,18 +18,29 @@ vi.mock("brain-sdk", async (importOriginal: any) => {
 
 import { configureRuntime } from "brain-sdk";
 import {
+  addTenantMember,
+  createTenant,
   ensureInstagramResponseProfile,
   extractHashtags,
+  getMetaWebhookEventById,
+  getTenantById,
+  listMetaWebhookEvents,
+  listTenantComponentConfigs,
+  listTenantMembers,
+  listTenantMetaAccounts,
+  listTenants,
   matchResponseByHashtags,
   matchResponseForPostText,
   normalizeResponseRules,
   parseMechDocument,
   profileStorageKey,
+  registerTenantMetaAccount,
   recordMetaWebhookEvent,
   recordInstagramResponse,
   resetDatabaseRuntimeState,
   resolveInstagramResponse,
   seedInstagramResponseProfileFromMech,
+  upsertTenantComponentConfig,
   updateMetaWebhookEventStatus,
 } from "../index";
 
@@ -551,5 +562,79 @@ describe("database component", () => {
     const rows = await listMetaWebhookEventsByStatus("failed", { limit: 10 });
 
     expect(rows.map((row) => row.id)).toEqual(["evt-new", "evt-old"]);
+  });
+
+  it("manages tenants, members, meta accounts, and configs through the fallback store", async () => {
+    const tenant = await createTenant({
+      name: "Ingles Con Liza",
+      description: "Primary tenant",
+    });
+
+    expect(tenant.slug).toBe("ingles-con-liza");
+    expect(await getTenantById(tenant.id)).toMatchObject({
+      id: tenant.id,
+      name: "Ingles Con Liza",
+    });
+    expect(await listTenants()).toHaveLength(1);
+
+    const member = await addTenantMember(tenant.id, {
+      email: "Admin@Omattic.com",
+      role: "owner",
+      status: "active",
+    });
+
+    expect(member.email).toBe("admin@omattic.com");
+    expect(await listTenantMembers(tenant.id)).toMatchObject([
+      expect.objectContaining({
+        email: "admin@omattic.com",
+        role: "owner",
+      }),
+    ]);
+
+    const account = await registerTenantMetaAccount(tenant.id, {
+      provider: "instagram",
+      accountId: "17841401707784079",
+      username: "inglesconliza",
+      label: "Main account",
+    });
+
+    expect(account.provider).toBe("instagram");
+    expect(await listTenantMetaAccounts(tenant.id)).toMatchObject([
+      expect.objectContaining({
+        accountId: "17841401707784079",
+        username: "inglesconliza",
+      }),
+    ]);
+
+    const config = await upsertTenantComponentConfig(tenant.id, {
+      component: "meta",
+      key: "instagram_access_token",
+      value: {
+        profile: "inglesconliza",
+        tokenKey: "instagram/access-token/inglesconliza",
+      },
+      isSecret: true,
+      updatedByEmail: "admin@omattic.com",
+    });
+
+    expect(config.isSecret).toBe(true);
+    expect(config.isJson).toBe(true);
+    expect(config.parsedValue).toEqual({
+      profile: "inglesconliza",
+      tokenKey: "instagram/access-token/inglesconliza",
+    });
+
+    const configs = await listTenantComponentConfigs(tenant.id, { component: "meta" });
+    expect(configs).toMatchObject([
+      expect.objectContaining({
+        component: "meta",
+        key: "INSTAGRAM_ACCESS_TOKEN",
+      }),
+    ]);
+  });
+
+  it("returns no detailed webhook event when no D1 backend is configured", async () => {
+    expect(await listMetaWebhookEvents({ status: "failed", limit: 10 })).toEqual([]);
+    expect(await getMetaWebhookEventById("evt-a")).toBeUndefined();
   });
 });
