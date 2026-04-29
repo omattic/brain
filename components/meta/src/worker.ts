@@ -7,7 +7,11 @@ import {
   daprize,
   sendToBus,
 } from 'brain-sdk';
-import { recordMetaWebhookEvent, updateMetaWebhookEventStatus } from 'brain-database';
+import {
+  listMetaWebhookEventsByStatus,
+  recordMetaWebhookEvent,
+  updateMetaWebhookEventStatus,
+} from 'brain-database';
 import { run } from './index';
 
 declare const Response: any;
@@ -170,6 +174,62 @@ async function handleWebhook(request: Request) {
   return new Response('OK');
 }
 
+function isAuthorizedRecoveryRequest(request: Request) {
+  const configuredToken = process.env.META_RECOVERY_TOKEN || process.env.META_VERIFY_TOKEN;
+  if (!configuredToken) {
+    return false;
+  }
+
+  const authHeader = request.headers.get('authorization') || '';
+  const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice('Bearer '.length).trim() : '';
+  return bearerToken === configuredToken;
+}
+
+async function handleRecovery(request: Request) {
+  if (request.method !== 'POST') {
+    return new Response('Method Not Allowed', { status: 405 });
+  }
+
+  if (!isAuthorizedRecoveryRequest(request)) {
+    return new Response('Forbidden', { status: 403 });
+  }
+
+  const body = await request.json().catch(() => ({}));
+  const limit = Math.max(1, Math.min(Number(body?.limit) || 25, 100));
+  const failedEvents = await listMetaWebhookEventsByStatus('failed', { limit });
+
+  const replayed: string[] = [];
+  const replayErrors: Array<{ id: string; error: string }> = [];
+
+  for (const webhookEvent of failedEvents) {
+    try {
+      const parsedPayload = JSON.parse(webhookEvent.payload);
+      await sendToBus('meta', {
+        event: parsedPayload,
+        context: {
+          webhookEventId: webhookEvent.id,
+          recovered: true,
+        },
+      });
+      await updateMetaWebhookEventStatus(webhookEvent.id, 'queued');
+      replayed.push(webhookEvent.id);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      await updateMetaWebhookEventStatus(webhookEvent.id, 'failed', {
+        errorMessage: message,
+      });
+      replayErrors.push({ id: webhookEvent.id, error: message });
+    }
+  }
+
+  return Response.json({
+    requestedLimit: limit,
+    scanned: failedEvents.length,
+    replayed,
+    replayErrors,
+  });
+}
+
 export default {
   async fetch(request: any, env: Env) {
     configureCloudflareRuntime(env);
@@ -181,6 +241,10 @@ export default {
 
     if (url.pathname === '/health') {
       return new Response('OK');
+    }
+
+    if (url.pathname === '/recover') {
+      return handleRecovery(request);
     }
 
     return new Response('meta worker ready');

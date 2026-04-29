@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { get, getRuntimeConfig, put } from "brain-sdk";
 import {
@@ -73,6 +73,20 @@ export type MetaWebhookEventEntry = {
   receivedAt?: string;
   processedAt?: string;
   updatedAt?: string;
+};
+
+export type StoredMetaWebhookEvent = {
+  id: string;
+  provider: string;
+  objectType?: string | null;
+  sourceAccountId?: string | null;
+  externalEventId?: string | null;
+  status: MetaWebhookEventStatus;
+  payload: string;
+  errorMessage?: string | null;
+  receivedAt: string;
+  processedAt?: string | null;
+  updatedAt: string;
 };
 
 export type MechImportOptions = {
@@ -738,6 +752,29 @@ export async function updateMetaWebhookEventStatus(
   };
   await put(key, payload);
   return payload;
+}
+
+export async function listMetaWebhookEventsByStatus(
+  status: MetaWebhookEventStatus,
+  options: {
+    limit?: number;
+  } = {}
+) {
+  const limit = Math.max(1, Math.min(options.limit || 25, 100));
+  const db = getDrizzleDb();
+
+  if (db) {
+    const rows = await db
+      .select()
+      .from(metaWebhookEvents)
+      .where(eq(metaWebhookEvents.status, status))
+      .orderBy(desc(metaWebhookEvents.updatedAt))
+      .limit(limit);
+
+    return rows as StoredMetaWebhookEvent[];
+  }
+
+  return [];
 }
 
 type DatabaseComponentEvent =

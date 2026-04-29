@@ -87,6 +87,13 @@ class MockD1Database {
         return row ? [row] : [];
       }
 
+      if (normalizedQuery.includes("from \"meta_webhook_events\"")) {
+        const status = String(statement._bound[0]);
+        return Array.from(db.webhookEventRows.values())
+          .filter((row) => row.status === status)
+          .sort((a, b) => `${b.updatedAt}`.localeCompare(`${a.updatedAt}`));
+      }
+
       return [];
     };
 
@@ -118,6 +125,22 @@ class MockD1Database {
           row.priority,
           row.updated_at,
           row.source,
+        ]);
+      }
+
+      if (query.includes("from \"meta_webhook_events\"")) {
+        return getObjectRows().map((row: any) => [
+          row.id,
+          row.provider,
+          row.objectType,
+          row.sourceAccountId,
+          row.externalEventId,
+          row.status,
+          row.payload,
+          row.errorMessage,
+          row.receivedAt,
+          row.processedAt,
+          row.updatedAt,
         ]);
       }
 
@@ -492,5 +515,41 @@ describe("database component", () => {
         active: true,
       },
     ]);
+  });
+
+  it("lists failed meta webhook events ordered by most recent update", async () => {
+    const d1 = new MockD1Database();
+    configureRuntime({
+      backend: "cloudflare",
+      cloudflare: {
+        d1: {
+          brain: d1 as any,
+        },
+      },
+    });
+
+    await recordMetaWebhookEvent({
+      id: "evt-old",
+      payload: { object: "instagram" },
+      status: "failed",
+      updatedAt: "2026-04-28T00:00:00.000Z",
+    });
+    await recordMetaWebhookEvent({
+      id: "evt-new",
+      payload: { object: "instagram" },
+      status: "failed",
+      updatedAt: "2026-04-29T00:00:00.000Z",
+    });
+    await recordMetaWebhookEvent({
+      id: "evt-processed",
+      payload: { object: "instagram" },
+      status: "processed",
+      updatedAt: "2026-04-30T00:00:00.000Z",
+    });
+
+    const { listMetaWebhookEventsByStatus } = await import("../index");
+    const rows = await listMetaWebhookEventsByStatus("failed", { limit: 10 });
+
+    expect(rows.map((row) => row.id)).toEqual(["evt-new", "evt-old"]);
   });
 });

@@ -19,6 +19,14 @@ vi.mock('brain-database', () => ({
   recordInstagramResponse: vi.fn(async () => undefined),
   recordMetaWebhookEvent: vi.fn(async (entry: any) => ({ id: 'evt-1', ...entry })),
   updateMetaWebhookEventStatus: vi.fn(async () => undefined),
+  listMetaWebhookEventsByStatus: vi.fn(async () => [
+    {
+      id: 'evt-failed-1',
+      payload: JSON.stringify({ object: 'instagram', entry: [{ id: '17841401707784079', changes: [] }] }),
+      status: 'failed',
+      updatedAt: '2026-04-29T00:00:00.000Z',
+    },
+  ]),
 }));
 
 import worker from '../worker';
@@ -44,6 +52,7 @@ describe('meta worker webhook security', () => {
     vi.clearAllMocks();
     process.env.META_VERIFY_TOKEN = 'verify-token';
     process.env.META_APP_SECRET = 'app-secret';
+    process.env.META_RECOVERY_TOKEN = 'recover-token';
   });
 
   it('verifies the webhook challenge', async () => {
@@ -103,5 +112,36 @@ describe('meta worker webhook security', () => {
 
     expect(response.status).toBe(403);
     expect(workerMocks.sendToBus).not.toHaveBeenCalled();
+  });
+
+  it('replays failed webhook events through the meta queue when authorized', async () => {
+    const response = await worker.fetch(
+      new Request('https://example.com/recover', {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer recover-token',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ limit: 5 }),
+      }),
+      {} as any
+    );
+
+    expect(response.status).toBe(200);
+    expect(workerMocks.sendToBus).toHaveBeenCalledWith('meta', {
+      event: { object: 'instagram', entry: [{ id: '17841401707784079', changes: [] }] },
+      context: { webhookEventId: 'evt-failed-1', recovered: true },
+    });
+  });
+
+  it('rejects unauthorized recovery requests', async () => {
+    const response = await worker.fetch(
+      new Request('https://example.com/recover', {
+        method: 'POST',
+      }),
+      {} as any
+    );
+
+    expect(response.status).toBe(403);
   });
 });
