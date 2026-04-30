@@ -32,6 +32,10 @@ export async function getTenants() {
   return request<{ tenants: Tenant[] }>("/api/tenants");
 }
 
+export async function getTenant(tenantId: string) {
+  return request<{ tenant: Tenant }>(`/api/tenants/${tenantId}`);
+}
+
 export async function createTenant(input: {
   name: string;
   slug?: string;
