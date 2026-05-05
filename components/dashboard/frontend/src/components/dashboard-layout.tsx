@@ -10,7 +10,7 @@ import {
   ShieldAlert,
   X,
 } from "lucide-react";
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { NavLink, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { getLogoutUrl } from "@/lib/api";
 import { useDashboard } from "@/lib/dashboard-context";
 import { cn } from "@/lib/utils";
@@ -148,14 +148,36 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [env, setEnv] = useState("production");
   const location = useLocation();
+  const navigate = useNavigate();
   const redirectUri = useMemo(() => window.location.href, []);
+  const [searchParams, setSearchParams] = useSearchParams();
   const routeLabel = routeLabels.find((entry) => entry.test(location.pathname))?.label || "Dashboard";
+  const searchValue = location.pathname.startsWith("/ig-hashtags") ? searchParams.get("q") || "" : "";
   const initials = (session?.name || session?.email || "DB")
     .split(/\s|@/g)
     .filter(Boolean)
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join("") || "DB";
+
+  function updateSearch(value: string) {
+    const nextParams = new URLSearchParams(searchParams);
+    if (value.trim()) {
+      nextParams.set("q", value);
+    } else {
+      nextParams.delete("q");
+    }
+
+    if (location.pathname.startsWith("/ig-hashtags")) {
+      setSearchParams(nextParams, { replace: true });
+      return;
+    }
+
+    navigate({
+      pathname: "/ig-hashtags",
+      search: nextParams.toString(),
+    });
+  }
 
   return (
     <div className="flex min-h-screen w-full bg-background font-sans text-foreground antialiased">
@@ -203,8 +225,10 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="search"
+                  value={searchValue}
                   placeholder="Search hashtags, responses..."
                   className="h-9 w-full border-none bg-secondary pl-8 md:w-[300px] lg:w-[400px]"
+                  onChange={(event) => updateSearch(event.target.value)}
                 />
               </div>
               {selectedTenant ? (

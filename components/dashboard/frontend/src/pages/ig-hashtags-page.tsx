@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Copy, Hash, Loader2, Plus, Save, Trash2 } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import {
   deleteInstagramResponseProfileRule,
   getInstagramResponseProfile,
@@ -7,7 +8,7 @@ import {
 } from "@/lib/api";
 import { useDashboard } from "@/lib/dashboard-context";
 import type { InstagramResponseRule } from "@/lib/types";
-import { formatDateTime } from "@/lib/utils";
+import { cn, formatDateTime } from "@/lib/utils";
 import { TenantPickerPage } from "@/pages/tenant-picker-page";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +35,14 @@ function newLocalId() {
 
 function normalizeHashtag(value: string) {
   return value.trim().replace(/^#/, "").toLowerCase();
+}
+
+function normalizeSearchText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .trim();
 }
 
 function createDraftRule(priority: number, hashtag = ""): DraftRule {
@@ -118,6 +127,21 @@ function toApiRule(rule: DraftRule, index: number) {
   };
 }
 
+function ruleMatchesSearch(rule: DraftRule, query: string) {
+  if (!query) return true;
+
+  const searchText = [
+    rule.hashtag,
+    `#${rule.hashtag}`,
+    ...rule.comments,
+    ...rule.dms,
+  ]
+    .map(normalizeSearchText)
+    .join("\n");
+
+  return searchText.includes(query);
+}
+
 function VariantEditor({
   label,
   values,
@@ -197,6 +221,13 @@ export function IgHashtagsPage() {
   const [loading, setLoading] = useState(false);
   const [savingRuleIds, setSavingRuleIds] = useState<Set<string>>(() => new Set());
   const [deletingRuleIds, setDeletingRuleIds] = useState<Set<string>>(() => new Set());
+  const [highlightedRuleId, setHighlightedRuleId] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchQuery = searchParams.get("q") || "";
+  const normalizedSearchQuery = normalizeSearchText(searchQuery);
+  const filteredRules = normalizedSearchQuery
+    ? rules.filter((rule) => ruleMatchesSearch(rule, normalizedSearchQuery))
+    : rules;
 
   useEffect(() => {
     if (!selectedTenantId) return;
@@ -233,7 +264,28 @@ export function IgHashtagsPage() {
     );
   }
 
+  function clearSearch() {
+    if (!searchQuery) return;
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("q");
+    setSearchParams(nextParams, { replace: true });
+  }
+
+  function scrollRuleIntoView(localId: string) {
+    window.requestAnimationFrame(() => {
+      const ruleElement = document.getElementById(`hashtag-rule-${localId}`);
+      if (ruleElement) {
+        ruleElement.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  }
+
   function addRule() {
+    clearSearch();
     setRules((currentRules) => {
       const nextPriority = Math.max(-1, ...currentRules.map((rule) => rule.priority)) + 1;
       return [createDraftRule(nextPriority), ...currentRules];
@@ -241,11 +293,13 @@ export function IgHashtagsPage() {
   }
 
   function copyRule(rule: DraftRule) {
+    const copiedLocalId = newLocalId();
+    setHighlightedRuleId(copiedLocalId);
     setRules((currentRules) => {
       const nextPriority = Math.max(-1, ...currentRules.map((entry) => entry.priority)) + 1;
       return [
         {
-          localId: newLocalId(),
+          localId: copiedLocalId,
           hashtag: generateCopiedHashtag(rule.hashtag, currentRules),
           comments: editableValues(compactStrings(rule.comments)),
           dms: editableValues(compactStrings(rule.dms)),
@@ -254,6 +308,7 @@ export function IgHashtagsPage() {
         ...currentRules,
       ];
     });
+    scrollRuleIntoView(copiedLocalId);
   }
 
   async function saveRule(rule: DraftRule, index: number) {
@@ -311,6 +366,9 @@ export function IgHashtagsPage() {
       )
     );
     setSuccess(`Saved #${nextHashtag}`);
+    if (highlightedRuleId === rule.localId) {
+      setHighlightedRuleId(null);
+    }
     setSavingRuleIds((current) => {
       const next = new Set(current);
       next.delete(rule.localId);
@@ -330,6 +388,9 @@ export function IgHashtagsPage() {
 
     if (!rule.persistedHashtag) {
       setRules((currentRules) => currentRules.filter((currentRule) => currentRule.localId !== rule.localId));
+      if (highlightedRuleId === rule.localId) {
+        setHighlightedRuleId(null);
+      }
       return;
     }
 
@@ -357,6 +418,9 @@ export function IgHashtagsPage() {
     setUpdatedAt(payload?.profile?.updatedAt || "");
     setSource(payload?.profile?.source || "");
     setRules((currentRules) => currentRules.filter((currentRule) => currentRule.localId !== rule.localId));
+    if (highlightedRuleId === rule.localId) {
+      setHighlightedRuleId(null);
+    }
     setSuccess(`Deleted #${hashtagToDelete}`);
     setDeletingRuleIds((current) => {
       const next = new Set(current);
@@ -441,23 +505,44 @@ export function IgHashtagsPage() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="text-sm font-semibold text-foreground">Hashtag responses</div>
-            <div className="mt-1 text-sm text-muted-foreground">Newest hashtags are shown first.</div>
+            <div className="mt-1 text-sm text-muted-foreground">
+              {searchQuery
+                ? `Showing ${filteredRules.length} of ${rules.length} matching "${searchQuery}".`
+                : "Newest hashtags are shown first."}
+            </div>
           </div>
-          <Button variant="secondary" className="gap-2" disabled={!canWriteSelectedTenant} onClick={addRule}>
-            <Plus className="h-4 w-4" />
-            Add hashtag
-          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            {searchQuery ? (
+              <Button type="button" variant="ghost" disabled={!searchQuery} onClick={clearSearch}>
+                Clear search
+              </Button>
+            ) : null}
+            <Button variant="secondary" className="gap-2" disabled={!canWriteSelectedTenant} onClick={addRule}>
+              <Plus className="h-4 w-4" />
+              Add hashtag
+            </Button>
+          </div>
         </div>
       ) : null}
 
       <div className="space-y-4">
-        {rules.map((rule, index) => {
+        {filteredRules.map((rule, index) => {
           const dirty = isRuleDirty(rule);
           const saving = savingRuleIds.has(rule.localId);
           const deleting = deletingRuleIds.has(rule.localId);
+          const unsavedDraft = !rule.persistedHashtag && dirty;
+          const highlighted = highlightedRuleId === rule.localId && dirty;
 
           return (
-            <Card key={rule.localId} className="space-y-5">
+            <Card
+              id={`hashtag-rule-${rule.localId}`}
+              key={rule.localId}
+              className={cn(
+                "scroll-mt-24 space-y-5 transition-all duration-300",
+                unsavedDraft && "border-brand/40 bg-indigo-50/30 shadow-[0_24px_70px_rgba(79,70,229,0.18)]",
+                highlighted && "ring-2 ring-brand/25"
+              )}
+            >
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="grid flex-1 gap-3 sm:max-w-xs">
                   <label className="space-y-2 text-sm font-medium text-foreground">
@@ -540,6 +625,12 @@ export function IgHashtagsPage() {
           );
         })}
       </div>
+
+      {!loading && rules.length > 0 && filteredRules.length === 0 ? (
+        <Card className="border-dashed text-sm leading-6 text-muted-foreground">
+          No hashtag responses match "{searchQuery}". Clear the search or try a hashtag, comment, or DM phrase.
+        </Card>
+      ) : null}
 
       {rules.length ? (
         <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
