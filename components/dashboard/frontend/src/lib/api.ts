@@ -66,3 +66,20 @@ export async function putInstagramResponseProfile(
     }
   );
 }
+
+export async function putInstagramResponseProfileRule(
+  tenantId: string,
+  input: {
+    profileName?: string;
+    previousHashtag?: string;
+    rule: Partial<InstagramResponseRule>;
+  }
+) {
+  return request<{ profileName: string; profile: InstagramResponseProfile }>(
+    `/api/tenants/${tenantId}/instagram-response-profile/rules`,
+    {
+      method: "PUT",
+      body: JSON.stringify(input),
+    }
+  );
+}

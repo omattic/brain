@@ -12,6 +12,7 @@ import {
   listTenantMetaAccounts,
   listTenants,
   putInstagramResponseProfile,
+  putInstagramResponseProfileRule,
   upsertTenantComponentConfig,
   type RawResponseRule,
   type TenantComponentConfig,
@@ -385,6 +386,52 @@ export default {
       segments[1] === "tenants" &&
       segments[2] &&
       segments[3] === "instagram-response-profile" &&
+      segments[4] === "rules" &&
+      request.method === "PUT"
+    ) {
+      const accessCheck = await requireTenantWriteAccess(session, segments[2]);
+      if (!accessCheck.ok) {
+        return accessCheck.response;
+      }
+
+      const body = await parseJson(request);
+      const current = await getTenantResponseProfile(
+        segments[2],
+        typeof body?.profileName === "string" ? body.profileName : undefined
+      );
+      if (!current) {
+        return json({ error: "Tenant not found" }, { status: 404 });
+      }
+
+      if (!body?.rule || typeof body.rule !== "object") {
+        return json({ error: "Rule is required" }, { status: 400 });
+      }
+
+      const profile = await putInstagramResponseProfileRule(current.profileName, body.rule as RawResponseRule, {
+        previousHashtags: body.previousHashtags || body.previousHashtag,
+        source: "brain-dashboard",
+      });
+      const config = await upsertTenantComponentConfig(segments[2], {
+        component: "meta",
+        key: "INSTAGRAM_RESPONSE_PROFILE",
+        value: profile.profile,
+        updatedByEmail: session.email,
+      });
+      await syncTenantConfigCache(env, segments[2], config.component);
+
+      return json({
+        profileName: profile.profile,
+        profile,
+        config,
+      });
+    }
+
+    if (
+      segments[0] === "api" &&
+      segments[1] === "tenants" &&
+      segments[2] &&
+      segments[3] === "instagram-response-profile" &&
+      segments.length === 4 &&
       request.method === "PUT"
     ) {
       const accessCheck = await requireTenantWriteAccess(session, segments[2]);

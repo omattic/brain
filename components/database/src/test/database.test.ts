@@ -36,6 +36,7 @@ import {
   parseMechDocument,
   profileStorageKey,
   putInstagramResponseProfile,
+  putInstagramResponseProfileRule,
   registerTenantMetaAccount,
   recordMetaWebhookEvent,
   recordInstagramResponse,
@@ -192,16 +193,22 @@ class MockD1Database {
 
         if (normalizedQuery.includes("delete from \"instagram_response_profile_comments\"")) {
           const profile = String(statement._bound[0]);
+          const hashtags = normalizedQuery.includes("\"hashtag\" in")
+            ? new Set(statement._bound.slice(1).map((value) => String(value)))
+            : null;
           for (const [key, value] of Array.from(db.commentRows.entries())) {
-            if (value.profile === profile) db.commentRows.delete(key);
+            if (value.profile === profile && (!hashtags || hashtags.has(value.hashtag))) db.commentRows.delete(key);
           }
           return { success: true };
         }
 
         if (normalizedQuery.includes("delete from \"instagram_response_profile_dms\"")) {
           const profile = String(statement._bound[0]);
+          const hashtags = normalizedQuery.includes("\"hashtag\" in")
+            ? new Set(statement._bound.slice(1).map((value) => String(value)))
+            : null;
           for (const [key, value] of Array.from(db.dmRows.entries())) {
-            if (value.profile === profile) db.dmRows.delete(key);
+            if (value.profile === profile && (!hashtags || hashtags.has(value.hashtag))) db.dmRows.delete(key);
           }
           return { success: true };
         }
@@ -533,6 +540,97 @@ describe("database component", () => {
 
     expect(d1.commentRows.size).toBe(90);
     expect(d1.dmRows.size).toBe(60);
+  });
+
+  it("updates one D1 hashtag response rule without rewriting other hashtags", async () => {
+    const d1 = new MockD1Database();
+    configureRuntime({
+      backend: "cloudflare",
+      cloudflare: {
+        d1: {
+          brain: d1 as any,
+        },
+      },
+    });
+
+    await putInstagramResponseProfile("Channel A", [
+      {
+        hashtags: "grupo",
+        comment: ["Old grupo"],
+        dm: ["Old grupo DM"],
+      },
+      {
+        hashtags: "club",
+        comment: ["Club comment"],
+        dm: ["Club DM"],
+      },
+    ]);
+
+    const updated = await putInstagramResponseProfileRule(
+      "Channel A",
+      {
+        hashtags: "grupo",
+        comment: ["New grupo A", "New grupo B"],
+        dm: ["New grupo DM"],
+      },
+      { source: "test" }
+    );
+
+    expect(updated.rules.find((rule) => rule.hashtags.includes("grupo"))).toMatchObject({
+      comment: ["New grupo A", "New grupo B"],
+      dm: ["New grupo DM"],
+    });
+    expect(updated.rules.find((rule) => rule.hashtags.includes("club"))).toMatchObject({
+      comment: ["Club comment"],
+      dm: ["Club DM"],
+    });
+    expect(Array.from(d1.commentRows.values()).filter((row) => row.hashtag === "grupo")).toHaveLength(2);
+    expect(Array.from(d1.commentRows.values()).filter((row) => row.hashtag === "club")).toHaveLength(1);
+  });
+
+  it("renames one D1 hashtag response rule by deleting the previous hashtag", async () => {
+    const d1 = new MockD1Database();
+    configureRuntime({
+      backend: "cloudflare",
+      cloudflare: {
+        d1: {
+          brain: d1 as any,
+        },
+      },
+    });
+
+    await putInstagramResponseProfile("Channel A", [
+      {
+        hashtags: "grupo",
+        comment: ["Old grupo"],
+        dm: ["Old grupo DM"],
+      },
+      {
+        hashtags: "club",
+        comment: ["Club comment"],
+        dm: ["Club DM"],
+      },
+    ]);
+
+    const updated = await putInstagramResponseProfileRule(
+      "Channel A",
+      {
+        hashtags: "comunidad",
+        comment: ["Community comment"],
+        dm: ["Community DM"],
+      },
+      { previousHashtags: "grupo", source: "test" }
+    );
+
+    expect(updated.rules.some((rule) => rule.hashtags.includes("grupo"))).toBe(false);
+    expect(updated.rules.find((rule) => rule.hashtags.includes("comunidad"))).toMatchObject({
+      comment: ["Community comment"],
+      dm: ["Community DM"],
+    });
+    expect(updated.rules.find((rule) => rule.hashtags.includes("club"))).toMatchObject({
+      comment: ["Club comment"],
+      dm: ["Club DM"],
+    });
   });
 
   it("recovers response rules from profile metadata when split D1 rows are missing", async () => {

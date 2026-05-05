@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Hash, Loader2, Plus, Save, Trash2 } from "lucide-react";
-import { getInstagramResponseProfile, putInstagramResponseProfile } from "@/lib/api";
+import { getInstagramResponseProfile, putInstagramResponseProfileRule } from "@/lib/api";
 import { useDashboard } from "@/lib/dashboard-context";
 import type { InstagramResponseRule } from "@/lib/types";
 import { formatDateTime } from "@/lib/utils";
@@ -16,6 +16,7 @@ type DraftRule = {
   localId: string;
   id?: string;
   hashtag: string;
+  persistedHashtag?: string;
   comments: string[];
   dms: string[];
   priority: number;
@@ -40,34 +41,39 @@ function createDraftRule(priority: number, hashtag = ""): DraftRule {
 }
 
 function toDraftRules(rules: InstagramResponseRule[]) {
-  return rules.flatMap((rule, ruleIndex) => {
-    const hashtags = rule.hashtags.length ? rule.hashtags : [""];
-    return hashtags.map((hashtag, hashtagIndex) => ({
-      localId: `${rule.id || "rule"}-${ruleIndex}-${hashtagIndex}-${hashtag}`,
-      id: `${rule.id || `rule-${ruleIndex + 1}`}:${hashtag || hashtagIndex}`,
-      hashtag,
-      comments: rule.comment.length ? [...rule.comment] : [""],
-      dms: rule.dm.length ? [...rule.dm] : [""],
-      priority: rule.priority ?? ruleIndex,
-    }));
-  });
+  return rules
+    .flatMap((rule, ruleIndex) => {
+      const hashtags = rule.hashtags.length ? rule.hashtags : [""];
+      return hashtags.map((hashtag, hashtagIndex) => ({
+        localId: `${rule.id || "rule"}-${ruleIndex}-${hashtagIndex}-${hashtag}`,
+        id: `${rule.id || `rule-${ruleIndex + 1}`}:${hashtag || hashtagIndex}`,
+        hashtag,
+        persistedHashtag: hashtag,
+        comments: editableValues([...rule.comment]),
+        dms: editableValues([...rule.dm]),
+        priority: rule.priority ?? ruleIndex,
+      }));
+    })
+    .sort((a, b) => b.priority - a.priority);
 }
 
 function compactStrings(values: string[]) {
   return values.map((value) => value.trim()).filter(Boolean);
 }
 
-function toApiRules(rules: DraftRule[]) {
-  return rules
-    .map((rule, index) => ({
-      id: rule.id || `dashboard-rule-${index + 1}`,
-      hashtags: [normalizeHashtag(rule.hashtag)].filter(Boolean),
-      comment: compactStrings(rule.comments),
-      dm: compactStrings(rule.dms),
-      active: true,
-      priority: index,
-    }))
-    .filter((rule) => rule.hashtags.length && (rule.comment.length || rule.dm.length));
+function editableValues(values: string[]) {
+  return values.length ? values : [""];
+}
+
+function toApiRule(rule: DraftRule, index: number) {
+  return {
+    id: rule.id || `dashboard-rule-${index + 1}`,
+    hashtags: [normalizeHashtag(rule.hashtag)].filter(Boolean),
+    comment: compactStrings(rule.comments),
+    dm: compactStrings(rule.dms),
+    active: true,
+    priority: rule.priority,
+  };
 }
 
 function VariantEditor({
@@ -147,9 +153,7 @@ export function IgHashtagsPage() {
   const [source, setSource] = useState("");
   const [rules, setRules] = useState<DraftRule[]>([]);
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  const saveableRules = useMemo(() => toApiRules(rules), [rules]);
+  const [savingRuleIds, setSavingRuleIds] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     if (!selectedTenantId) return;
@@ -191,31 +195,70 @@ export function IgHashtagsPage() {
   }
 
   function addRule() {
-    setRules((currentRules) => [...currentRules, createDraftRule(currentRules.length)]);
+    setRules((currentRules) => {
+      const nextPriority = Math.max(-1, ...currentRules.map((rule) => rule.priority)) + 1;
+      return [createDraftRule(nextPriority), ...currentRules];
+    });
   }
 
-  async function saveRules() {
+  async function saveRule(rule: DraftRule, index: number) {
     if (!selectedTenantId) return;
-    setSaving(true);
+    const apiRule = toApiRule(rule, index);
+    const nextHashtag = apiRule.hashtags[0];
+
+    if (!nextHashtag) {
+      setError("Add a hashtag before saving this response.");
+      return;
+    }
+    if (!apiRule.comment.length && !apiRule.dm.length) {
+      setError("Add at least one comment or DM response before saving this hashtag.");
+      return;
+    }
+
+    setSavingRuleIds((current) => new Set(current).add(rule.localId));
     setSuccess(null);
     setError(null);
-    const { response, payload } = await putInstagramResponseProfile(selectedTenantId, {
+    const { response, payload } = await putInstagramResponseProfileRule(selectedTenantId, {
       profileName,
-      rules: saveableRules,
+      previousHashtag: rule.persistedHashtag,
+      rule: apiRule,
     });
 
     if (!response.ok) {
-      setError((payload as any)?.error || "Unable to save Instagram hashtag responses");
-      setSaving(false);
+      setError((payload as any)?.error || "Unable to save this Instagram hashtag response");
+      setSavingRuleIds((current) => {
+        const next = new Set(current);
+        next.delete(rule.localId);
+        return next;
+      });
       return;
     }
 
     setProfileName(payload?.profileName || payload?.profile?.profile || profileName);
     setUpdatedAt(payload?.profile?.updatedAt || "");
     setSource(payload?.profile?.source || "");
-    setRules(toDraftRules(payload?.profile?.rules || []));
-    setSuccess("Instagram hashtag responses saved");
-    setSaving(false);
+    const savedRule = payload?.profile?.rules?.find((entry) => entry.hashtags.includes(nextHashtag));
+    setRules((currentRules) =>
+      currentRules.map((currentRule) =>
+        currentRule.localId === rule.localId
+          ? {
+              ...currentRule,
+              id: savedRule?.id || currentRule.id || apiRule.id,
+              hashtag: nextHashtag,
+              persistedHashtag: nextHashtag,
+              comments: editableValues(savedRule?.comment?.length ? savedRule.comment : apiRule.comment),
+              dms: editableValues(savedRule?.dm?.length ? savedRule.dm : apiRule.dm),
+              priority: savedRule?.priority ?? currentRule.priority,
+            }
+          : currentRule
+      )
+    );
+    setSuccess(`Saved #${nextHashtag}`);
+    setSavingRuleIds((current) => {
+      const next = new Set(current);
+      next.delete(rule.localId);
+      return next;
+    });
   }
 
   if (!selectedTenant) {
@@ -231,14 +274,6 @@ export function IgHashtagsPage() {
         actions={
           <div className="flex items-center gap-2">
             <Badge className="bg-slate-100 text-slate-700">{profileName || "profile pending"}</Badge>
-            <Button
-              className="gap-2"
-              disabled={!canWriteSelectedTenant || loading || saving}
-              onClick={() => void saveRules()}
-            >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              Save changes
-            </Button>
           </div>
         }
       />
@@ -298,6 +333,19 @@ export function IgHashtagsPage() {
         </Card>
       ) : null}
 
+      {rules.length ? (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="text-sm font-semibold text-foreground">Hashtag responses</div>
+            <div className="mt-1 text-sm text-muted-foreground">Newest hashtags are shown first.</div>
+          </div>
+          <Button variant="secondary" className="gap-2" disabled={!canWriteSelectedTenant} onClick={addRule}>
+            <Plus className="h-4 w-4" />
+            Add hashtag
+          </Button>
+        </div>
+      ) : null}
+
       <div className="space-y-4">
         {rules.map((rule, index) => (
           <Card key={rule.localId} className="space-y-5">
@@ -319,6 +367,19 @@ export function IgHashtagsPage() {
               </div>
               <div className="flex items-center gap-2">
                 <Badge className="bg-slate-100 text-slate-700">Rule {index + 1}</Badge>
+                <Button
+                  type="button"
+                  className="gap-2"
+                  disabled={!canWriteSelectedTenant || loading || savingRuleIds.has(rule.localId)}
+                  onClick={() => void saveRule(rule, index)}
+                >
+                  {savingRuleIds.has(rule.localId) ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  Save
+                </Button>
                 <Button
                   type="button"
                   variant="ghost"
@@ -363,7 +424,7 @@ export function IgHashtagsPage() {
             Add hashtag
           </Button>
           <div className="text-sm text-muted-foreground">
-            {saveableRules.length} saveable hashtag rule{saveableRules.length === 1 ? "" : "s"}
+            Save each hashtag independently to keep requests small and avoid overwriting unrelated edits.
           </div>
         </div>
       ) : null}

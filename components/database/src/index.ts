@@ -751,6 +751,126 @@ export async function putInstagramResponseProfile(
   return payload;
 }
 
+export async function putInstagramResponseProfileRule(
+  profile: string,
+  rule: RawResponseRule,
+  options: {
+    previousHashtags?: string[] | string;
+    source?: string;
+  } = {}
+) {
+  const normalizedProfile = sanitizeProfile(profile);
+  const source = options.source || "manual";
+  const updatedAt = new Date().toISOString();
+  const normalizedRules = normalizeResponseRules([rule]);
+  const normalizedRule = normalizedRules[0];
+  const targetHashtags = Array.from(
+    new Set([
+      ...normalizeHashtags(rule?.hashtags),
+      ...normalizeHashtags(options.previousHashtags),
+    ])
+  );
+
+  if (!targetHashtags.length) {
+    throw new Error("At least one hashtag is required");
+  }
+
+  const db = getDrizzleDb();
+  if (!db) {
+    const existing = await getInstagramResponseProfile(normalizedProfile);
+    const nextRules = [
+      ...(existing?.rules || []).filter(
+        (existingRule) => !existingRule.hashtags.some((hashtag) => targetHashtags.includes(hashtag))
+      ),
+      ...normalizedRules,
+    ].sort((a, b) => a.priority - b.priority);
+
+    return putInstagramResponseProfile(normalizedProfile, nextRules, source);
+  }
+
+  await db
+    .delete(instagramResponseProfileComments)
+    .where(
+      and(
+        eq(instagramResponseProfileComments.profile, normalizedProfile),
+        inArray(instagramResponseProfileComments.hashtag, targetHashtags)
+      )
+    );
+  await db
+    .delete(instagramResponseProfileDms)
+    .where(
+      and(
+        eq(instagramResponseProfileDms.profile, normalizedProfile),
+        inArray(instagramResponseProfileDms.hashtag, targetHashtags)
+      )
+    );
+
+  if (normalizedRule) {
+    const { comments, dms } = flattenRulesToTextRows(normalizedProfile, [normalizedRule], updatedAt, source);
+
+    for (let index = 0; index < comments.length; index += D1_TEXT_ROW_INSERT_CHUNK_SIZE) {
+      await db
+        .insert(instagramResponseProfileComments)
+        .values(comments.slice(index, index + D1_TEXT_ROW_INSERT_CHUNK_SIZE));
+    }
+
+    for (let index = 0; index < dms.length; index += D1_TEXT_ROW_INSERT_CHUNK_SIZE) {
+      await db
+        .insert(instagramResponseProfileDms)
+        .values(dms.slice(index, index + D1_TEXT_ROW_INSERT_CHUNK_SIZE));
+    }
+  }
+
+  const [comments, dms] = await Promise.all([
+    db
+      .select()
+      .from(instagramResponseProfileComments)
+      .where(eq(instagramResponseProfileComments.profile, normalizedProfile))
+      .orderBy(asc(instagramResponseProfileComments.priority), asc(instagramResponseProfileComments.id)),
+    db
+      .select()
+      .from(instagramResponseProfileDms)
+      .where(eq(instagramResponseProfileDms.profile, normalizedProfile))
+      .orderBy(asc(instagramResponseProfileDms.priority), asc(instagramResponseProfileDms.id)),
+  ]);
+  const nextProfile = rebuildProfileFromD1Rows(
+    normalizedProfile,
+    comments as D1TextRow[],
+    dms as D1TextRow[],
+    {
+      profile: normalizedProfile,
+      payload: "",
+      source,
+      updatedAt,
+    }
+  );
+  const profilePayload = buildProfilePayload(normalizedProfile, nextProfile.rules, updatedAt, source);
+
+  await db
+    .insert(instagramResponseProfiles)
+    .values({
+      profile: normalizedProfile,
+      payload: profilePayload,
+      source,
+      updatedAt,
+    })
+    .onConflictDoUpdate({
+      target: instagramResponseProfiles.profile,
+      set: {
+        payload: profilePayload,
+        source,
+        updatedAt,
+      },
+    });
+
+  return {
+    profile: normalizedProfile,
+    rules: nextProfile.rules,
+    updatedAt,
+    source,
+  } satisfies InstagramResponseProfile;
+}
+
 export async function seedInstagramResponseProfileFromMech(
   profile: string,
   content: string,

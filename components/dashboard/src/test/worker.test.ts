@@ -111,6 +111,12 @@ const databaseMocks = vi.hoisted(() => {
     source,
     rules,
   })),
+  putInstagramResponseProfileRule: vi.fn(async (profile: string, rule: any, options: any) => ({
+    profile,
+    updatedAt: "2026-05-02T00:00:00.000Z",
+    source: options?.source || "manual",
+    rules: [rule],
+  })),
   upsertTenantComponentConfig: vi.fn(async (_tenantId: string, input: any) => ({
     id: "tenant-1:meta:INSTAGRAM_RESPONSE_PROFILE",
     tenantId: "tenant-1",
@@ -297,6 +303,49 @@ describe("dashboard worker", () => {
       value: "ingles-con-liza",
       updatedByEmail: "editor@omattic.com",
     });
+    expect(kvMock.put).toHaveBeenCalledWith(
+      "tenant-config/tenant-1/meta",
+      expect.stringContaining("INSTAGRAM_RESPONSE_PROFILE")
+    );
+  });
+
+  it("saves one Instagram response profile rule for tenant editors", async () => {
+    const response = await worker.fetch(
+      new Request("https://brain.omattic.com/api/tenants/tenant-1/instagram-response-profile/rules", {
+        method: "PUT",
+        headers: {
+          cookie: "session_token=editor-token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          profileName: "Ingles Con Liza",
+          previousHashtag: "grupo",
+          rule: {
+            hashtags: ["comunidad"],
+            comment: ["Te envié el enlace"],
+            dm: ["Aquí tienes el enlace"],
+            active: true,
+            priority: 44,
+          },
+        }),
+      }),
+      env
+    );
+
+    expect(response.status).toBe(200);
+    expect(databaseMocks.putInstagramResponseProfileRule).toHaveBeenCalledWith(
+      "ingles-con-liza",
+      expect.objectContaining({
+        hashtags: ["comunidad"],
+        comment: ["Te envié el enlace"],
+        dm: ["Aquí tienes el enlace"],
+      }),
+      {
+        previousHashtags: "grupo",
+        source: "brain-dashboard",
+      }
+    );
+    expect(databaseMocks.putInstagramResponseProfile).not.toHaveBeenCalled();
     expect(kvMock.put).toHaveBeenCalledWith(
       "tenant-config/tenant-1/meta",
       expect.stringContaining("INSTAGRAM_RESPONSE_PROFILE")
