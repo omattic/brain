@@ -4,6 +4,7 @@ import {
   configureRuntime,
 } from "brain-sdk";
 import {
+  deleteInstagramResponseProfileRule,
   getInstagramResponseProfile,
   getTenantById,
   listTenantComponentConfigs,
@@ -378,6 +379,54 @@ export default {
       return json({
         profileName: responseProfile.profileName,
         profile: responseProfile.profile,
+      });
+    }
+
+    if (
+      segments[0] === "api" &&
+      segments[1] === "tenants" &&
+      segments[2] &&
+      segments[3] === "instagram-response-profile" &&
+      segments[4] === "rules" &&
+      request.method === "DELETE"
+    ) {
+      const accessCheck = await requireTenantWriteAccess(session, segments[2]);
+      if (!accessCheck.ok) {
+        return accessCheck.response;
+      }
+
+      const body = await parseJson(request);
+      const current = await getTenantResponseProfile(
+        segments[2],
+        typeof body?.profileName === "string" ? body.profileName : undefined
+      );
+      if (!current) {
+        return json({ error: "Tenant not found" }, { status: 404 });
+      }
+
+      const hashtags = body?.hashtags || body?.hashtag;
+      const hasDeleteTarget = Array.isArray(hashtags)
+        ? hashtags.some((hashtag) => `${hashtag}`.trim())
+        : typeof hashtags === "string" && hashtags.trim();
+      if (!hasDeleteTarget) {
+        return json({ error: "Hashtag is required" }, { status: 400 });
+      }
+
+      const profile = await deleteInstagramResponseProfileRule(current.profileName, hashtags, {
+        source: "brain-dashboard",
+      });
+      const config = await upsertTenantComponentConfig(segments[2], {
+        component: "meta",
+        key: "INSTAGRAM_RESPONSE_PROFILE",
+        value: profile.profile,
+        updatedByEmail: session.email,
+      });
+      await syncTenantConfigCache(env, segments[2], config.component);
+
+      return json({
+        profileName: profile.profile,
+        profile,
+        config,
       });
     }
 

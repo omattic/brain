@@ -20,6 +20,7 @@ import { configureRuntime } from "brain-sdk";
 import {
   addTenantMember,
   createTenant,
+  deleteInstagramResponseProfileRule,
   ensureInstagramResponseProfile,
   extractHashtags,
   getMetaWebhookEventById,
@@ -631,6 +632,42 @@ describe("database component", () => {
       comment: ["Club comment"],
       dm: ["Club DM"],
     });
+  });
+
+  it("deletes one D1 hashtag response rule without rewriting other hashtags", async () => {
+    const d1 = new MockD1Database();
+    configureRuntime({
+      backend: "cloudflare",
+      cloudflare: {
+        d1: {
+          brain: d1 as any,
+        },
+      },
+    });
+
+    await putInstagramResponseProfile("Channel A", [
+      {
+        hashtags: "grupo",
+        comment: ["Grupo comment"],
+        dm: ["Grupo DM"],
+      },
+      {
+        hashtags: "club",
+        comment: ["Club comment"],
+        dm: ["Club DM"],
+      },
+    ]);
+
+    const updated = await deleteInstagramResponseProfileRule("Channel A", "grupo", { source: "test" });
+
+    expect(updated.rules.some((rule) => rule.hashtags.includes("grupo"))).toBe(false);
+    expect(updated.rules.find((rule) => rule.hashtags.includes("club"))).toMatchObject({
+      comment: ["Club comment"],
+      dm: ["Club DM"],
+    });
+    expect(Array.from(d1.commentRows.values()).some((row) => row.hashtag === "grupo")).toBe(false);
+    expect(Array.from(d1.dmRows.values()).some((row) => row.hashtag === "grupo")).toBe(false);
+    expect(JSON.parse(d1.profileRows.get("channel-a").payload).rules).toHaveLength(1);
   });
 
   it("recovers response rules from profile metadata when split D1 rows are missing", async () => {

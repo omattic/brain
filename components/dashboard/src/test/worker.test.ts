@@ -27,107 +27,113 @@ const databaseMocks = vi.hoisted(() => {
   };
 
   return {
-  listTenants: vi.fn(async () => [tenant]),
-  getTenantById: vi.fn(async (tenantId: string) => (tenantId === "tenant-1" ? tenant : null)),
-  listTenantMembers: vi.fn(async () => [
-    {
-      id: "membership-1",
-      tenantId: "tenant-1",
-      email: "viewer@omattic.com",
-      role: "viewer",
-      status: "active",
-      createdAt: "2026-04-29T00:00:00.000Z",
-      updatedAt: "2026-04-29T00:00:00.000Z",
-    },
-    {
-      id: "membership-2",
-      tenantId: "tenant-1",
-      email: "editor@omattic.com",
-      role: "editor",
-      status: "active",
-      createdAt: "2026-04-29T00:00:00.000Z",
-      updatedAt: "2026-04-29T00:00:00.000Z",
-    },
-  ]),
-  listTenantMembershipsByEmail: vi.fn(async (email: string) =>
-    email === "viewer@omattic.com"
-      ? [
-          {
-            id: "membership-1",
-            tenantId: "tenant-1",
-            email,
-            role: "viewer",
-            status: "active",
-            createdAt: "2026-04-29T00:00:00.000Z",
-            updatedAt: "2026-04-29T00:00:00.000Z",
-          },
-        ]
-      : email === "editor@omattic.com"
+    deleteInstagramResponseProfileRule: vi.fn(async (profile: string, hashtags: any, options: any) => ({
+      profile,
+      updatedAt: "2026-05-02T00:00:00.000Z",
+      source: options?.source || "manual",
+      rules: [],
+    })),
+    listTenants: vi.fn(async () => [tenant]),
+    getTenantById: vi.fn(async (tenantId: string) => (tenantId === "tenant-1" ? tenant : null)),
+    listTenantMembers: vi.fn(async () => [
+      {
+        id: "membership-1",
+        tenantId: "tenant-1",
+        email: "viewer@omattic.com",
+        role: "viewer",
+        status: "active",
+        createdAt: "2026-04-29T00:00:00.000Z",
+        updatedAt: "2026-04-29T00:00:00.000Z",
+      },
+      {
+        id: "membership-2",
+        tenantId: "tenant-1",
+        email: "editor@omattic.com",
+        role: "editor",
+        status: "active",
+        createdAt: "2026-04-29T00:00:00.000Z",
+        updatedAt: "2026-04-29T00:00:00.000Z",
+      },
+    ]),
+    listTenantMembershipsByEmail: vi.fn(async (email: string) =>
+      email === "viewer@omattic.com"
         ? [
             {
-              id: "membership-2",
+              id: "membership-1",
               tenantId: "tenant-1",
               email,
-              role: "editor",
+              role: "viewer",
               status: "active",
               createdAt: "2026-04-29T00:00:00.000Z",
               updatedAt: "2026-04-29T00:00:00.000Z",
             },
           ]
-        : []
-  ),
-  listTenantMetaAccounts: vi.fn(async () => [
-    {
-      id: "account-1",
-      tenantId: "tenant-1",
-      provider: "instagram",
-      accountId: "17841401707784079",
-      username: "inglesconliza",
-      label: null,
-      status: "active",
-      createdAt: "2026-04-29T00:00:00.000Z",
-      updatedAt: "2026-04-29T00:00:00.000Z",
-    },
-  ]),
-  listTenantComponentConfigs: vi.fn(async () => [tenantConfig]),
-  getInstagramResponseProfile: vi.fn(async (profile: string) => ({
-    profile,
-    updatedAt: "2026-05-01T00:00:00.000Z",
-    source: "seed",
-    rules: [
+        : email === "editor@omattic.com"
+          ? [
+              {
+                id: "membership-2",
+                tenantId: "tenant-1",
+                email,
+                role: "editor",
+                status: "active",
+                createdAt: "2026-04-29T00:00:00.000Z",
+                updatedAt: "2026-04-29T00:00:00.000Z",
+              },
+            ]
+          : []
+    ),
+    listTenantMetaAccounts: vi.fn(async () => [
       {
-        id: "rule-1",
-        hashtags: ["grupo"],
-        comment: ["Te envié el enlace por DM"],
-        dm: ["Aquí tienes el enlace"],
-        active: true,
-        priority: 0,
+        id: "account-1",
+        tenantId: "tenant-1",
+        provider: "instagram",
+        accountId: "17841401707784079",
+        username: "inglesconliza",
+        label: null,
+        status: "active",
+        createdAt: "2026-04-29T00:00:00.000Z",
+        updatedAt: "2026-04-29T00:00:00.000Z",
       },
-    ],
-  })),
-  putInstagramResponseProfile: vi.fn(async (profile: string, rules: any[], source: string) => ({
-    profile,
-    updatedAt: "2026-05-02T00:00:00.000Z",
-    source,
-    rules,
-  })),
-  putInstagramResponseProfileRule: vi.fn(async (profile: string, rule: any, options: any) => ({
-    profile,
-    updatedAt: "2026-05-02T00:00:00.000Z",
-    source: options?.source || "manual",
-    rules: [rule],
-  })),
-  upsertTenantComponentConfig: vi.fn(async (_tenantId: string, input: any) => ({
-    id: "tenant-1:meta:INSTAGRAM_RESPONSE_PROFILE",
-    tenantId: "tenant-1",
-    component: input.component,
-    key: input.key,
-    value: input.value,
-    parsedValue: input.value,
-    isSecret: Boolean(input.isSecret),
-    isJson: false,
-    updatedAt: "2026-05-02T00:00:00.000Z",
-  })),
+    ]),
+    listTenantComponentConfigs: vi.fn(async () => [tenantConfig]),
+    getInstagramResponseProfile: vi.fn(async (profile: string) => ({
+      profile,
+      updatedAt: "2026-05-01T00:00:00.000Z",
+      source: "seed",
+      rules: [
+        {
+          id: "rule-1",
+          hashtags: ["grupo"],
+          comment: ["Te envié el enlace por DM"],
+          dm: ["Aquí tienes el enlace"],
+          active: true,
+          priority: 0,
+        },
+      ],
+    })),
+    putInstagramResponseProfile: vi.fn(async (profile: string, rules: any[], source: string) => ({
+      profile,
+      updatedAt: "2026-05-02T00:00:00.000Z",
+      source,
+      rules,
+    })),
+    putInstagramResponseProfileRule: vi.fn(async (profile: string, rule: any, options: any) => ({
+      profile,
+      updatedAt: "2026-05-02T00:00:00.000Z",
+      source: options?.source || "manual",
+      rules: [rule],
+    })),
+    upsertTenantComponentConfig: vi.fn(async (_tenantId: string, input: any) => ({
+      id: "tenant-1:meta:INSTAGRAM_RESPONSE_PROFILE",
+      tenantId: "tenant-1",
+      component: input.component,
+      key: input.key,
+      value: input.value,
+      parsedValue: input.value,
+      isSecret: Boolean(input.isSecret),
+      isJson: false,
+      updatedAt: "2026-05-02T00:00:00.000Z",
+    })),
   };
 });
 
@@ -346,6 +352,36 @@ describe("dashboard worker", () => {
       }
     );
     expect(databaseMocks.putInstagramResponseProfile).not.toHaveBeenCalled();
+    expect(kvMock.put).toHaveBeenCalledWith(
+      "tenant-config/tenant-1/meta",
+      expect.stringContaining("INSTAGRAM_RESPONSE_PROFILE")
+    );
+  });
+
+  it("deletes one Instagram response profile rule for tenant editors", async () => {
+    const response = await worker.fetch(
+      new Request("https://brain.omattic.com/api/tenants/tenant-1/instagram-response-profile/rules", {
+        method: "DELETE",
+        headers: {
+          cookie: "session_token=editor-token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          profileName: "Ingles Con Liza",
+          hashtag: "grupo",
+        }),
+      }),
+      env
+    );
+
+    expect(response.status).toBe(200);
+    expect(databaseMocks.deleteInstagramResponseProfileRule).toHaveBeenCalledWith(
+      "ingles-con-liza",
+      "grupo",
+      {
+        source: "brain-dashboard",
+      }
+    );
     expect(kvMock.put).toHaveBeenCalledWith(
       "tenant-config/tenant-1/meta",
       expect.stringContaining("INSTAGRAM_RESPONSE_PROFILE")

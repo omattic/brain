@@ -871,6 +871,99 @@ export async function putInstagramResponseProfileRule(
   } satisfies InstagramResponseProfile;
 }
 
+export async function deleteInstagramResponseProfileRule(
+  profile: string,
+  hashtags: string[] | string,
+  options: {
+    source?: string;
+  } = {}
+) {
+  const normalizedProfile = sanitizeProfile(profile);
+  const source = options.source || "manual";
+  const updatedAt = new Date().toISOString();
+  const targetHashtags = normalizeHashtags(hashtags);
+
+  if (!targetHashtags.length) {
+    throw new Error("At least one hashtag is required");
+  }
+
+  const db = getDrizzleDb();
+  if (!db) {
+    const existing = await getInstagramResponseProfile(normalizedProfile);
+    const nextRules = (existing?.rules || [])
+      .filter((existingRule) => !existingRule.hashtags.some((hashtag) => targetHashtags.includes(hashtag)))
+      .sort((a, b) => a.priority - b.priority);
+
+    return putInstagramResponseProfile(normalizedProfile, nextRules, source);
+  }
+
+  await db
+    .delete(instagramResponseProfileComments)
+    .where(
+      and(
+        eq(instagramResponseProfileComments.profile, normalizedProfile),
+        inArray(instagramResponseProfileComments.hashtag, targetHashtags)
+      )
+    );
+  await db
+    .delete(instagramResponseProfileDms)
+    .where(
+      and(
+        eq(instagramResponseProfileDms.profile, normalizedProfile),
+        inArray(instagramResponseProfileDms.hashtag, targetHashtags)
+      )
+    );
+
+  const [comments, dms] = await Promise.all([
+    db
+      .select()
+      .from(instagramResponseProfileComments)
+      .where(eq(instagramResponseProfileComments.profile, normalizedProfile))
+      .orderBy(asc(instagramResponseProfileComments.priority), asc(instagramResponseProfileComments.id)),
+    db
+      .select()
+      .from(instagramResponseProfileDms)
+      .where(eq(instagramResponseProfileDms.profile, normalizedProfile))
+      .orderBy(asc(instagramResponseProfileDms.priority), asc(instagramResponseProfileDms.id)),
+  ]);
+  const nextProfile = rebuildProfileFromD1Rows(
+    normalizedProfile,
+    comments as D1TextRow[],
+    dms as D1TextRow[],
+    {
+      profile: normalizedProfile,
+      payload: "",
+      source,
+      updatedAt,
+    }
+  );
+  const profilePayload = buildProfilePayload(normalizedProfile, nextProfile.rules, updatedAt, source);
+
+  await db
+    .insert(instagramResponseProfiles)
+    .values({
+      profile: normalizedProfile,
+      payload: profilePayload,
+      source,
+      updatedAt,
+    })
+    .onConflictDoUpdate({
+      target: instagramResponseProfiles.profile,
+      set: {
+        payload: profilePayload,
+        source,
+        updatedAt,
+      },
+    });
+
+  return {
+    profile: normalizedProfile,
+    rules: nextProfile.rules,
+    updatedAt,
+    source,
+  } satisfies InstagramResponseProfile;
+}
+
 export async function seedInstagramResponseProfileFromMech(
   profile: string,
   content: string,

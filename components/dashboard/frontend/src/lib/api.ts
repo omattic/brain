@@ -83,3 +83,19 @@ export async function putInstagramResponseProfileRule(
     }
   );
 }
+
+export async function deleteInstagramResponseProfileRule(
+  tenantId: string,
+  input: {
+    profileName?: string;
+    hashtag: string;
+  }
+) {
+  return request<{ profileName: string; profile: InstagramResponseProfile }>(
+    `/api/tenants/${tenantId}/instagram-response-profile/rules`,
+    {
+      method: "DELETE",
+      body: JSON.stringify(input),
+    }
+  );
+}

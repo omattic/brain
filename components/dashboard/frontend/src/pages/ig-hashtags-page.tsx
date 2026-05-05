@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
-import { Hash, Loader2, Plus, Save, Trash2 } from "lucide-react";
-import { getInstagramResponseProfile, putInstagramResponseProfileRule } from "@/lib/api";
+import { Copy, Hash, Loader2, Plus, Save, Trash2 } from "lucide-react";
+import {
+  deleteInstagramResponseProfileRule,
+  getInstagramResponseProfile,
+  putInstagramResponseProfileRule,
+} from "@/lib/api";
 import { useDashboard } from "@/lib/dashboard-context";
 import type { InstagramResponseRule } from "@/lib/types";
 import { formatDateTime } from "@/lib/utils";
@@ -17,6 +21,8 @@ type DraftRule = {
   id?: string;
   hashtag: string;
   persistedHashtag?: string;
+  persistedComments?: string[];
+  persistedDms?: string[];
   comments: string[];
   dms: string[];
   priority: number;
@@ -49,6 +55,8 @@ function toDraftRules(rules: InstagramResponseRule[]) {
         id: `${rule.id || `rule-${ruleIndex + 1}`}:${hashtag || hashtagIndex}`,
         hashtag,
         persistedHashtag: hashtag,
+        persistedComments: compactStrings(rule.comment),
+        persistedDms: compactStrings(rule.dm),
         comments: editableValues([...rule.comment]),
         dms: editableValues([...rule.dm]),
         priority: rule.priority ?? ruleIndex,
@@ -61,8 +69,42 @@ function compactStrings(values: string[]) {
   return values.map((value) => value.trim()).filter(Boolean);
 }
 
+function arraysEqual(left: string[], right: string[]) {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
 function editableValues(values: string[]) {
   return values.length ? values : [""];
+}
+
+function generateCopiedHashtag(baseHashtag: string, rules: DraftRule[]) {
+  const normalizedBase = normalizeHashtag(baseHashtag) || "hashtag";
+  const existing = new Set(rules.map((rule) => normalizeHashtag(rule.hashtag)).filter(Boolean));
+  let candidate = `${normalizedBase}-copy`;
+  let suffix = 2;
+
+  while (existing.has(candidate)) {
+    candidate = `${normalizedBase}-copy-${suffix}`;
+    suffix += 1;
+  }
+
+  return candidate;
+}
+
+function isRuleDirty(rule: DraftRule) {
+  const hashtag = normalizeHashtag(rule.hashtag);
+  const comments = compactStrings(rule.comments);
+  const dms = compactStrings(rule.dms);
+
+  if (!rule.persistedHashtag && !rule.persistedComments && !rule.persistedDms) {
+    return Boolean(hashtag || comments.length || dms.length);
+  }
+
+  return (
+    hashtag !== normalizeHashtag(rule.persistedHashtag || "") ||
+    !arraysEqual(comments, rule.persistedComments || []) ||
+    !arraysEqual(dms, rule.persistedDms || [])
+  );
 }
 
 function toApiRule(rule: DraftRule, index: number) {
@@ -154,6 +196,7 @@ export function IgHashtagsPage() {
   const [rules, setRules] = useState<DraftRule[]>([]);
   const [loading, setLoading] = useState(false);
   const [savingRuleIds, setSavingRuleIds] = useState<Set<string>>(() => new Set());
+  const [deletingRuleIds, setDeletingRuleIds] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     if (!selectedTenantId) return;
@@ -190,14 +233,26 @@ export function IgHashtagsPage() {
     );
   }
 
-  function removeRule(localId: string) {
-    setRules((currentRules) => currentRules.filter((rule) => rule.localId !== localId));
-  }
-
   function addRule() {
     setRules((currentRules) => {
       const nextPriority = Math.max(-1, ...currentRules.map((rule) => rule.priority)) + 1;
       return [createDraftRule(nextPriority), ...currentRules];
+    });
+  }
+
+  function copyRule(rule: DraftRule) {
+    setRules((currentRules) => {
+      const nextPriority = Math.max(-1, ...currentRules.map((entry) => entry.priority)) + 1;
+      return [
+        {
+          localId: newLocalId(),
+          hashtag: generateCopiedHashtag(rule.hashtag, currentRules),
+          comments: editableValues(compactStrings(rule.comments)),
+          dms: editableValues(compactStrings(rule.dms)),
+          priority: nextPriority,
+        },
+        ...currentRules,
+      ];
     });
   }
 
@@ -248,6 +303,8 @@ export function IgHashtagsPage() {
               persistedHashtag: nextHashtag,
               comments: editableValues(savedRule?.comment?.length ? savedRule.comment : apiRule.comment),
               dms: editableValues(savedRule?.dm?.length ? savedRule.dm : apiRule.dm),
+              persistedComments: compactStrings(savedRule?.comment?.length ? savedRule.comment : apiRule.comment),
+              persistedDms: compactStrings(savedRule?.dm?.length ? savedRule.dm : apiRule.dm),
               priority: savedRule?.priority ?? currentRule.priority,
             }
           : currentRule
@@ -255,6 +312,53 @@ export function IgHashtagsPage() {
     );
     setSuccess(`Saved #${nextHashtag}`);
     setSavingRuleIds((current) => {
+      const next = new Set(current);
+      next.delete(rule.localId);
+      return next;
+    });
+  }
+
+  async function deleteRule(rule: DraftRule) {
+    const hashtagToDelete = normalizeHashtag(rule.persistedHashtag || rule.hashtag);
+    const label = hashtagToDelete ? `#${hashtagToDelete}` : "this unsaved hashtag";
+    const discardMessage = isRuleDirty(rule) ? " Unsaved edits on this hashtag will be discarded." : "";
+    const confirmed = window.confirm(
+      `Delete ${label}? This will remove its comment and DM responses.${discardMessage}`
+    );
+
+    if (!confirmed) return;
+
+    if (!rule.persistedHashtag) {
+      setRules((currentRules) => currentRules.filter((currentRule) => currentRule.localId !== rule.localId));
+      return;
+    }
+
+    if (!selectedTenantId || !hashtagToDelete) return;
+
+    setDeletingRuleIds((current) => new Set(current).add(rule.localId));
+    setSuccess(null);
+    setError(null);
+    const { response, payload } = await deleteInstagramResponseProfileRule(selectedTenantId, {
+      profileName,
+      hashtag: hashtagToDelete,
+    });
+
+    if (!response.ok) {
+      setError((payload as any)?.error || "Unable to delete this Instagram hashtag response");
+      setDeletingRuleIds((current) => {
+        const next = new Set(current);
+        next.delete(rule.localId);
+        return next;
+      });
+      return;
+    }
+
+    setProfileName(payload?.profileName || payload?.profile?.profile || profileName);
+    setUpdatedAt(payload?.profile?.updatedAt || "");
+    setSource(payload?.profile?.source || "");
+    setRules((currentRules) => currentRules.filter((currentRule) => currentRule.localId !== rule.localId));
+    setSuccess(`Deleted #${hashtagToDelete}`);
+    setDeletingRuleIds((current) => {
       const next = new Set(current);
       next.delete(rule.localId);
       return next;
@@ -347,73 +451,94 @@ export function IgHashtagsPage() {
       ) : null}
 
       <div className="space-y-4">
-        {rules.map((rule, index) => (
-          <Card key={rule.localId} className="space-y-5">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div className="grid flex-1 gap-3 sm:max-w-xs">
-                <label className="space-y-2 text-sm font-medium text-foreground">
-                  Hashtag
-                  <div className="relative">
-                    <Hash className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      value={rule.hashtag}
-                      disabled={!canWriteSelectedTenant}
-                      placeholder="grupo"
-                      className="bg-white pl-8"
-                      onChange={(event) => updateRule(rule.localId, { hashtag: event.target.value })}
-                    />
-                  </div>
-                </label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  className="gap-2"
-                  disabled={!canWriteSelectedTenant || loading || savingRuleIds.has(rule.localId)}
-                  onClick={() => void saveRule(rule, index)}
-                >
-                  {savingRuleIds.has(rule.localId) ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save className="h-4 w-4" />
-                  )}
-                  Save
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="gap-2 text-rose-600 hover:text-rose-700"
-                  disabled={!canWriteSelectedTenant}
-                  onClick={() => removeRule(rule.localId)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Remove
-                </Button>
-              </div>
-            </div>
+        {rules.map((rule, index) => {
+          const dirty = isRuleDirty(rule);
+          const saving = savingRuleIds.has(rule.localId);
+          const deleting = deletingRuleIds.has(rule.localId);
 
-            <div className="grid gap-5 xl:grid-cols-2">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <VariantEditor
-                  label="Comment responses"
-                  values={rule.comments}
-                  disabled={!canWriteSelectedTenant}
-                  placeholder="Te envié el enlace por mensaje directo."
-                  onChange={(comments) => updateRule(rule.localId, { comments })}
-                />
+          return (
+            <Card key={rule.localId} className="space-y-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="grid flex-1 gap-3 sm:max-w-xs">
+                  <label className="space-y-2 text-sm font-medium text-foreground">
+                    Hashtag
+                    <div className="relative">
+                      <Hash className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        value={rule.hashtag}
+                        disabled={!canWriteSelectedTenant}
+                        placeholder="grupo"
+                        className="bg-white pl-8"
+                        onChange={(event) => updateRule(rule.localId, { hashtag: event.target.value })}
+                      />
+                    </div>
+                  </label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="gap-2"
+                    disabled={!canWriteSelectedTenant || deleting}
+                    onClick={() => copyRule(rule)}
+                  >
+                    <Copy className="h-4 w-4" />
+                    Copy
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={dirty ? "default" : "secondary"}
+                    className="gap-2"
+                    disabled={!canWriteSelectedTenant || loading || saving || deleting || !dirty}
+                    onClick={() => void saveRule(rule, index)}
+                  >
+                    {saving ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4" />
+                    )}
+                    Save
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="gap-2 text-rose-600 hover:text-rose-700"
+                    disabled={!canWriteSelectedTenant || saving || deleting}
+                    onClick={() => void deleteRule(rule)}
+                  >
+                    {deleting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                    Remove
+                  </Button>
+                </div>
               </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <VariantEditor
-                  label="DM responses"
-                  values={rule.dms}
-                  disabled={!canWriteSelectedTenant}
-                  placeholder="Aquí tienes el enlace a la comunidad..."
-                  onChange={(dms) => updateRule(rule.localId, { dms })}
-                />
+
+              <div className="grid gap-5 xl:grid-cols-2">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <VariantEditor
+                    label="Comment responses"
+                    values={rule.comments}
+                    disabled={!canWriteSelectedTenant}
+                    placeholder="Te envié el enlace por mensaje directo."
+                    onChange={(comments) => updateRule(rule.localId, { comments })}
+                  />
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <VariantEditor
+                    label="DM responses"
+                    values={rule.dms}
+                    disabled={!canWriteSelectedTenant}
+                    placeholder="Aquí tienes el enlace a la comunidad..."
+                    onChange={(dms) => updateRule(rule.localId, { dms })}
+                  />
+                </div>
               </div>
-            </div>
-          </Card>
-        ))}
+            </Card>
+          );
+        })}
       </div>
 
       {rules.length ? (
