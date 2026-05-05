@@ -10,6 +10,7 @@ import {
   createTenant,
   getMetaWebhookEventById,
   getTenantById,
+  listDiscoveredMetaAccounts,
   listMetaWebhookEvents,
   listTenantComponentConfigs,
   listTenantMembershipsByEmail,
@@ -312,6 +313,19 @@ export default {
         isSuperAdmin: access.superAdmin,
         tenantIds: access.tenantIds,
       });
+    }
+
+    if (url.pathname === "/api/meta-accounts/discovered" && request.method === "GET") {
+      const access = await getSessionAccess(session);
+      let accounts = await listDiscoveredMetaAccounts({
+        limit: Number(url.searchParams.get("limit") || "500"),
+      });
+
+      if (!access.superAdmin) {
+        accounts = accounts.filter((account) => account.tenantId && access.tenantIds.includes(account.tenantId));
+      }
+
+      return json({ accounts });
     }
 
     if (url.pathname === "/api/tenants" && request.method === "GET") {

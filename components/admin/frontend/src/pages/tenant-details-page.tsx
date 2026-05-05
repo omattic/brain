@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, CreditCard, Save, Settings2, UserPlus, Users } from "lucide-react";
+import { ArrowLeft, CreditCard, MousePointer2, Save, Settings2, UserPlus, Users } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
-import { addTenantMember, addTenantMetaAccount, getTenant, putTenantConfig } from "@/lib/api";
+import { addTenantMember, addTenantMetaAccount, getDiscoveredMetaAccounts, getTenant, putTenantConfig } from "@/lib/api";
 import { useAdmin } from "@/lib/admin-context";
-import type { Tenant } from "@/lib/types";
+import type { DiscoveredMetaAccount, Tenant } from "@/lib/types";
 import { formatDateTime } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,7 @@ export function TenantDetailsPage() {
   const { tenantId } = useParams();
   const { session, refreshWorkspace, setError, setSuccess } = useAdmin();
   const [tenant, setTenant] = useState<Tenant | null>(null);
+  const [discoveredAccounts, setDiscoveredAccounts] = useState<DiscoveredMetaAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<DetailTab>("members");
   const [memberEmail, setMemberEmail] = useState("");
@@ -51,8 +52,17 @@ export function TenantDetailsPage() {
     setLoading(false);
   }
 
+  async function loadDiscoveredAccounts() {
+    const { response, payload } = await getDiscoveredMetaAccounts({ limit: 500 });
+    if (!response.ok) {
+      setError((payload as any)?.error || "Unable to load discovered Meta accounts");
+      return;
+    }
+    setDiscoveredAccounts(payload?.accounts || []);
+  }
+
   useEffect(() => {
-    void loadTenant();
+    void Promise.all([loadTenant(), loadDiscoveredAccounts()]);
   }, [tenantId]);
 
   function parseConfigInput(value: string) {
@@ -97,7 +107,13 @@ export function TenantDetailsPage() {
     setAccountId("");
     setAccountUsername("");
     setSuccess(`Registered ${(payload as any)?.account?.accountId || "account"}`);
-    await Promise.all([loadTenant(), refreshWorkspace()]);
+    await Promise.all([loadTenant(), loadDiscoveredAccounts(), refreshWorkspace()]);
+  }
+
+  function useDiscoveredAccount(account: DiscoveredMetaAccount) {
+    setAccountProvider(account.provider || "instagram");
+    setAccountId(account.accountId);
+    setAccountUsername(account.username || "");
   }
 
   async function onSaveConfig() {
@@ -218,7 +234,7 @@ export function TenantDetailsPage() {
           ) : null}
 
           {activeTab === "accounts" ? (
-            <div className="grid gap-6 xl:grid-cols-[0.9fr,1.1fr]">
+            <div className="grid gap-6 xl:grid-cols-[0.95fr,1.05fr]">
               <Card className="space-y-4">
                 <div className="flex items-center gap-2">
                   <CreditCard className="h-4 w-4 text-[#635bff]" />
@@ -226,9 +242,12 @@ export function TenantDetailsPage() {
                 </div>
                 {canWriteTenant ? (
                   <div className="space-y-3">
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-500">
+                      Pick a discovered account below to fill these fields from webhook history.
+                    </div>
                     <Input placeholder="instagram" value={accountProvider} onChange={(event) => setAccountProvider(event.target.value)} />
                     <Input placeholder="17841401707784079" value={accountId} onChange={(event) => setAccountId(event.target.value)} />
-                    <Input placeholder="inglesconliza" value={accountUsername} onChange={(event) => setAccountUsername(event.target.value)} />
+                    <Input placeholder="username, optional" value={accountUsername} onChange={(event) => setAccountUsername(event.target.value)} />
                     <Button className="w-full gap-2" onClick={() => void onAddAccount()}>
                       <CreditCard className="h-4 w-4" />
                       Register account
@@ -241,32 +260,73 @@ export function TenantDetailsPage() {
                 )}
               </Card>
 
-              <Card className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <CreditCard className="h-4 w-4 text-[#635bff]" />
-                  <div className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Mapped accounts</div>
-                </div>
-                <div className="space-y-3">
-                  {tenant.metaAccounts.length ? tenant.metaAccounts.map((account) => (
-                    <div key={account.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <div className="text-sm font-medium text-slate-950">{account.username || account.accountId}</div>
-                          <div className="mt-1 text-xs text-slate-500">{account.provider} · {account.accountId}</div>
+              <div className="space-y-6">
+                <Card className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <MousePointer2 className="h-4 w-4 text-[#635bff]" />
+                    <div className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Discovered accounts</div>
+                  </div>
+                  <div className="space-y-3">
+                    {discoveredAccounts.length ? discoveredAccounts.map((account) => (
+                      <button
+                        key={`${account.provider}:${account.accountId}`}
+                        type="button"
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-left transition hover:border-brand/40 hover:bg-white"
+                        onClick={() => useDiscoveredAccount(account)}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-medium text-slate-950">
+                              {account.username || account.accountId}
+                            </div>
+                            <div className="mt-1 text-xs text-slate-500">{account.provider} · {account.accountId}</div>
+                            <div className="mt-1 text-xs text-slate-500">
+                              Last event {formatDateTime(account.lastSeenAt)} · {account.eventCount} event{account.eventCount === 1 ? "" : "s"}
+                            </div>
+                          </div>
+                          <div className="flex shrink-0 flex-col items-end gap-2">
+                            <Badge className={account.tenantId ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}>
+                              {account.tenantName || "unmapped"}
+                            </Badge>
+                            <span className="text-xs font-medium text-brand">Use</span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Badge>{account.status}</Badge>
-                          {account.label ? <Badge className="border-[#e2e8f0] bg-slate-100 text-slate-700">{account.label}</Badge> : null}
+                      </button>
+                    )) : (
+                      <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-sm text-slate-500">
+                        No Meta accounts have been discovered from webhook history yet.
+                      </div>
+                    )}
+                  </div>
+                </Card>
+
+                <Card className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-[#635bff]" />
+                    <div className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Mapped accounts</div>
+                  </div>
+                  <div className="space-y-3">
+                    {tenant.metaAccounts.length ? tenant.metaAccounts.map((account) => (
+                      <div key={account.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="text-sm font-medium text-slate-950">{account.username || account.accountId}</div>
+                            <div className="mt-1 text-xs text-slate-500">{account.provider} · {account.accountId}</div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge>{account.status}</Badge>
+                            {account.label ? <Badge className="border-[#e2e8f0] bg-slate-100 text-slate-700">{account.label}</Badge> : null}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )) : (
-                    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-sm text-slate-500">
-                      No Meta accounts are mapped to this tenant yet.
-                    </div>
-                  )}
-                </div>
-              </Card>
+                    )) : (
+                      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-sm text-slate-500">
+                        No Meta accounts are mapped to this tenant yet.
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              </div>
             </div>
           ) : null}
 

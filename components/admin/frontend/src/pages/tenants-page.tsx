@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { ArrowRight, Building2, CreditCard, Plus, UserPlus } from "lucide-react";
+import { ArrowRight, Building2, Plus, UserPlus } from "lucide-react";
 import { Link } from "react-router-dom";
-import { addTenantMember, addTenantMetaAccount, createTenant } from "@/lib/api";
+import { addTenantMember, createTenant } from "@/lib/api";
 import { useAdmin } from "@/lib/admin-context";
 import { formatDateTime } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
@@ -19,10 +19,6 @@ export function TenantsPage() {
   const [memberTenantId, setMemberTenantId] = useState("");
   const [memberEmail, setMemberEmail] = useState("");
   const [memberRole, setMemberRole] = useState("admin");
-  const [accountTenantId, setAccountTenantId] = useState("");
-  const [accountProvider, setAccountProvider] = useState("instagram");
-  const [accountId, setAccountId] = useState("");
-  const [accountUsername, setAccountUsername] = useState("");
 
   async function onCreateTenant() {
     setSuccess(null);
@@ -61,25 +57,6 @@ export function TenantsPage() {
     await refreshWorkspace();
   }
 
-  async function onAddAccount() {
-    setSuccess(null);
-    setError(null);
-    const targetTenantId = accountTenantId || firstTenantId;
-    const { response, payload } = await addTenantMetaAccount(targetTenantId, {
-      provider: accountProvider,
-      accountId,
-      username: accountUsername || undefined,
-    });
-    if (!response.ok) {
-      setError((payload as any)?.error || "Unable to register account");
-      return;
-    }
-    setAccountId("");
-    setAccountUsername("");
-    setSuccess(`Registered ${(payload as any)?.account?.accountId || "account"}`);
-    await refreshWorkspace();
-  }
-
   const firstTenantId = tenants[0]?.id || "";
 
   return (
@@ -89,7 +66,7 @@ export function TenantsPage() {
         description="Manage infrastructure nodes and client environments."
       />
 
-      <section className="grid gap-6 xl:grid-cols-3">
+      <section className="grid gap-6 xl:grid-cols-2">
         <Card className="space-y-4">
           <div className="flex items-center gap-2">
             <Building2 className="h-4 w-4 text-[#635bff]" />
@@ -149,33 +126,6 @@ export function TenantsPage() {
           )}
         </Card>
 
-        <Card className="space-y-4">
-          <div className="flex items-center gap-2">
-            <CreditCard className="h-4 w-4 text-[#635bff]" />
-            <div className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Meta account</div>
-          </div>
-          <div className="space-y-3">
-            <select
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900"
-              value={accountTenantId}
-              onChange={(event) => setAccountTenantId(event.target.value)}
-            >
-              <option value="">Select tenant</option>
-              {tenants.map((tenant) => (
-                <option key={tenant.id} value={tenant.id}>
-                  {tenant.name}
-                </option>
-              ))}
-            </select>
-            <Input placeholder="instagram" value={accountProvider} onChange={(event) => setAccountProvider(event.target.value)} />
-            <Input placeholder="17841401707784079" value={accountId} onChange={(event) => setAccountId(event.target.value)} />
-            <Input placeholder="inglesconliza" value={accountUsername} onChange={(event) => setAccountUsername(event.target.value)} />
-            <Button className="w-full gap-2" onClick={() => void onAddAccount()} disabled={!firstTenantId}>
-              <CreditCard className="h-4 w-4" />
-              Register account
-            </Button>
-          </div>
-        </Card>
       </section>
 
       <section className="grid gap-4">

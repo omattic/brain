@@ -1,4 +1,4 @@
-import type { AdminSession, MetaWebhookEvent, Tenant } from "@/lib/types";
+import type { AdminSession, DiscoveredMetaAccount, MetaWebhookEvent, Tenant } from "@/lib/types";
 
 const AUTH_ORIGIN = "https://auth.omattic.com";
 
@@ -34,6 +34,13 @@ export async function getTenants() {
 
 export async function getTenant(tenantId: string) {
   return request<{ tenant: Tenant }>(`/api/tenants/${tenantId}`);
+}
+
+export async function getDiscoveredMetaAccounts(input: { limit?: number } = {}) {
+  const params = new URLSearchParams({
+    limit: `${input.limit || 500}`,
+  });
+  return request<{ accounts: DiscoveredMetaAccount[] }>(`/api/meta-accounts/discovered?${params.toString()}`);
 }
 
 export async function createTenant(input: {

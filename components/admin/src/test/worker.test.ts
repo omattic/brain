@@ -60,6 +60,32 @@ const databaseMocks = vi.hoisted(() => ({
   ),
   listTenantMetaAccounts: vi.fn(async () => []),
   listTenantComponentConfigs: vi.fn(async () => []),
+  listDiscoveredMetaAccounts: vi.fn(async () => [
+    {
+      provider: "instagram",
+      accountId: "17841401707784079",
+      username: null,
+      tenantId: null,
+      tenantName: null,
+      metaAccountId: null,
+      status: null,
+      eventCount: 4,
+      firstSeenAt: "2026-04-29T00:00:00.000Z",
+      lastSeenAt: "2026-04-30T00:00:00.000Z",
+    },
+    {
+      provider: "instagram",
+      accountId: "17841401700000000",
+      username: "mappedaccount",
+      tenantId: "tenant-1",
+      tenantName: "Ingles Con Liza",
+      metaAccountId: "account-2",
+      status: "active",
+      eventCount: 2,
+      firstSeenAt: "2026-04-29T00:00:00.000Z",
+      lastSeenAt: "2026-04-29T12:00:00.000Z",
+    },
+  ]),
   createTenant: vi.fn(async (input: any) => ({
     id: "tenant-created",
     name: input.name,
@@ -231,6 +257,48 @@ describe("admin worker", () => {
     const payload = await response.json();
     expect(payload.tenants).toHaveLength(1);
     expect(payload.tenants[0].id).toBe("tenant-1");
+  });
+
+  it("lists discovered Meta accounts for super-admins", async () => {
+    const response = await worker.fetch(
+      new Request("https://brain-admin.omattic.com/api/meta-accounts/discovered", {
+        headers: {
+          authorization: "Bearer token",
+        },
+      }),
+      {
+        BRAIN_DB: {} as any,
+        BRAIN_CONFIG: kvMock as any,
+        META_QUEUE: {} as any,
+        ASSETS: assetsMock as any,
+      }
+    );
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.accounts).toHaveLength(2);
+    expect(payload.accounts[0].accountId).toBe("17841401707784079");
+  });
+
+  it("filters discovered Meta accounts for tenant-scoped users", async () => {
+    const response = await worker.fetch(
+      new Request("https://brain-admin.omattic.com/api/meta-accounts/discovered", {
+        headers: {
+          cookie: "session_token=viewer-token",
+        },
+      }),
+      {
+        BRAIN_DB: {} as any,
+        BRAIN_CONFIG: kvMock as any,
+        META_QUEUE: {} as any,
+        ASSETS: assetsMock as any,
+      }
+    );
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.accounts).toHaveLength(1);
+    expect(payload.accounts[0].tenantId).toBe("tenant-1");
   });
 
   it("filters tenants for non-super-admin members", async () => {

@@ -163,6 +163,19 @@ export type AdminMetaWebhookEvent = StoredMetaWebhookEvent & {
   metaAccountUsername?: string | null;
 };
 
+export type DiscoveredMetaAccount = {
+  provider: string;
+  accountId: string;
+  username?: string | null;
+  tenantId?: string | null;
+  tenantName?: string | null;
+  metaAccountId?: string | null;
+  status?: string | null;
+  eventCount: number;
+  firstSeenAt: string;
+  lastSeenAt: string;
+};
+
 type D1TextRow = {
   id: string;
   profile: string;
@@ -943,6 +956,88 @@ export async function listMetaWebhookEvents(
   }
 
   return [];
+}
+
+function inferWebhookSourceAccountId(payload: string) {
+  try {
+    const parsed = JSON.parse(payload);
+    const entryId = parsed?.entry?.[0]?.id;
+    return entryId ? `${entryId}` : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function listDiscoveredMetaAccounts(options: { limit?: number } = {}) {
+  const limit = Math.max(1, Math.min(options.limit || 500, 500));
+  const db = getDrizzleDb();
+
+  if (!db) {
+    return [] as DiscoveredMetaAccount[];
+  }
+
+  const rows = await db
+    .select({
+      provider: metaWebhookEvents.provider,
+      objectType: metaWebhookEvents.objectType,
+      sourceAccountId: metaWebhookEvents.sourceAccountId,
+      payload: metaWebhookEvents.payload,
+      receivedAt: metaWebhookEvents.receivedAt,
+      updatedAt: metaWebhookEvents.updatedAt,
+      tenantId: tenantMetaAccounts.tenantId,
+      tenantName: tenants.name,
+      metaAccountId: tenantMetaAccounts.id,
+      metaAccountUsername: tenantMetaAccounts.username,
+      metaAccountStatus: tenantMetaAccounts.status,
+    })
+    .from(metaWebhookEvents)
+    .leftJoin(tenantMetaAccounts, eq(metaWebhookEvents.sourceAccountId, tenantMetaAccounts.accountId))
+    .leftJoin(tenants, eq(tenantMetaAccounts.tenantId, tenants.id))
+    .orderBy(desc(metaWebhookEvents.receivedAt))
+    .limit(limit);
+
+  const accounts = new Map<string, DiscoveredMetaAccount>();
+
+  for (const row of rows) {
+    const accountId = row.sourceAccountId || inferWebhookSourceAccountId(row.payload);
+    if (!accountId) continue;
+
+    const provider = row.objectType === "instagram" || row.provider === "instagram" ? "instagram" : row.provider || "meta";
+    const key = `${provider}:${accountId}`;
+    const seenAt = row.receivedAt || row.updatedAt;
+    const existing = accounts.get(key);
+
+    if (!existing) {
+      accounts.set(key, {
+        provider,
+        accountId,
+        username: row.metaAccountUsername || null,
+        tenantId: row.tenantId || null,
+        tenantName: row.tenantName || null,
+        metaAccountId: row.metaAccountId || null,
+        status: row.metaAccountStatus || null,
+        eventCount: 1,
+        firstSeenAt: seenAt,
+        lastSeenAt: seenAt,
+      });
+      continue;
+    }
+
+    existing.eventCount += 1;
+    if (seenAt < existing.firstSeenAt) {
+      existing.firstSeenAt = seenAt;
+    }
+    if (seenAt > existing.lastSeenAt) {
+      existing.lastSeenAt = seenAt;
+    }
+    existing.username = existing.username || row.metaAccountUsername || null;
+    existing.tenantId = existing.tenantId || row.tenantId || null;
+    existing.tenantName = existing.tenantName || row.tenantName || null;
+    existing.metaAccountId = existing.metaAccountId || row.metaAccountId || null;
+    existing.status = existing.status || row.metaAccountStatus || null;
+  }
+
+  return Array.from(accounts.values()).sort((a, b) => b.lastSeenAt.localeCompare(a.lastSeenAt));
 }
 
 export async function getMetaWebhookEventById(id: string) {

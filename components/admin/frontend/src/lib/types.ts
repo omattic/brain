@@ -64,3 +64,16 @@ export type MetaWebhookEvent = {
   metaAccountId?: string | null;
   metaAccountUsername?: string | null;
 };
+
+export type DiscoveredMetaAccount = {
+  provider: string;
+  accountId: string;
+  username?: string | null;
+  tenantId?: string | null;
+  tenantName?: string | null;
+  metaAccountId?: string | null;
+  status?: string | null;
+  eventCount: number;
+  firstSeenAt: string;
+  lastSeenAt: string;
+};
