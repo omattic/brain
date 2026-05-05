@@ -14,6 +14,7 @@ import {
 } from "./schema";
 
 const D1_DATABASE_NAME = "brain";
+const D1_TEXT_ROW_INSERT_CHUNK_SIZE = 10;
 
 export type RawResponseRule = {
   id?: string;
@@ -681,12 +682,16 @@ export async function putInstagramResponseProfile(
     await db.delete(instagramResponseProfileComments).where(eq(instagramResponseProfileComments.profile, normalizedProfile));
     await db.delete(instagramResponseProfileDms).where(eq(instagramResponseProfileDms.profile, normalizedProfile));
 
-    if (comments.length) {
-      await db.insert(instagramResponseProfileComments).values(comments);
+    for (let index = 0; index < comments.length; index += D1_TEXT_ROW_INSERT_CHUNK_SIZE) {
+      await db
+        .insert(instagramResponseProfileComments)
+        .values(comments.slice(index, index + D1_TEXT_ROW_INSERT_CHUNK_SIZE));
     }
 
-    if (dms.length) {
-      await db.insert(instagramResponseProfileDms).values(dms);
+    for (let index = 0; index < dms.length; index += D1_TEXT_ROW_INSERT_CHUNK_SIZE) {
+      await db
+        .insert(instagramResponseProfileDms)
+        .values(dms.slice(index, index + D1_TEXT_ROW_INSERT_CHUNK_SIZE));
     }
 
     return payload;

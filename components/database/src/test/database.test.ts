@@ -34,6 +34,7 @@ import {
   normalizeResponseRules,
   parseMechDocument,
   profileStorageKey,
+  putInstagramResponseProfile,
   registerTenantMetaAccount,
   recordMetaWebhookEvent,
   recordInstagramResponse,
@@ -51,6 +52,8 @@ class MockD1Database {
   logRows = new Map<string, any>();
   webhookEventRows = new Map<string, any>();
   schemaExecutions = 0;
+
+  constructor(private maxBoundValues = Infinity) {}
 
   exec = vi.fn(async (_query: string) => {
     this.schemaExecutions += 1;
@@ -172,6 +175,10 @@ class MockD1Database {
         return null;
       },
       async run() {
+        if (statement._bound.length > db.maxBoundValues) {
+          throw new Error(`Too many SQL variables: ${statement._bound.length}`);
+        }
+
         if (normalizedQuery.includes("insert into \"instagram_response_profiles\"")) {
           db.profileRows.set(String(statement._bound[0]), {
             profile: String(statement._bound[0]),
@@ -500,6 +507,31 @@ describe("database component", () => {
       id: "evt-1",
       status: "processed",
     });
+  });
+
+  it("chunks large response profile text inserts for D1 variable limits", async () => {
+    const d1 = new MockD1Database(100);
+    configureRuntime({
+      backend: "cloudflare",
+      cloudflare: {
+        d1: {
+          brain: d1 as any,
+        },
+      },
+    });
+
+    await putInstagramResponseProfile(
+      "Large Profile",
+      Array.from({ length: 30 }, (_, index) => ({
+        hashtags: [`tag-${index}`],
+        comment: [`Comment ${index} A`, `Comment ${index} B`, `Comment ${index} C`],
+        dm: [`DM ${index} A`, `DM ${index} B`],
+      })),
+      "test"
+    );
+
+    expect(d1.commentRows.size).toBe(90);
+    expect(d1.dmRows.size).toBe(60);
   });
 
   it("seeds a profile directly from the mech document", async () => {
