@@ -85,9 +85,8 @@ export function TenantsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Tenants"
-        title="Provision and manage tenant workspaces"
-        description="Create tenants, seed memberships, and map Meta accounts without leaving the admin surface."
+        title="Tenants & Clients"
+        description="Manage infrastructure nodes and client environments."
       />
 
       <section className="grid gap-6 xl:grid-cols-3">

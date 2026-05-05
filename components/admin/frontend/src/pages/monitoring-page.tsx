@@ -67,9 +67,8 @@ export function MonitoringPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Monitoring"
-        title="Failed Meta webhook recovery"
-        description="Inspect recent failed Meta webhook events, load their stored payloads, and replay them directly from the admin surface."
+        title="Infrastructure Logs"
+        description="Real-time system events, API audits, and Brain activity."
         actions={
           <>
             <Button variant="secondary" className="gap-2" onClick={() => void loadEvents()}>

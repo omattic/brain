@@ -14,9 +14,8 @@ export function OverviewPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Overview"
-        title="Tenant operations at a glance"
-        description="The current workspace state across tenants, Meta account mappings, runtime config, and recovery posture."
+        title="Infrastructure Overview"
+        description="Real-time performance and system metrics across all tenants."
       />
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">

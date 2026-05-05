@@ -3,6 +3,7 @@ import { AdminLayout } from "@/components/admin-layout";
 import { AdminProvider } from "@/lib/admin-context";
 import { MonitoringPage } from "@/pages/monitoring-page";
 import { OverviewPage } from "@/pages/overview-page";
+import { PlaceholderPage } from "@/pages/placeholder-page";
 import { TenantDetailsPage } from "@/pages/tenant-details-page";
 import { TenantsPage } from "@/pages/tenants-page";
 
@@ -16,6 +17,10 @@ export function App() {
             <Route path="/tenants" element={<TenantsPage />} />
             <Route path="/tenants/:tenantId" element={<TenantDetailsPage />} />
             <Route path="/monitoring" element={<MonitoringPage />} />
+            <Route path="/integrations" element={<PlaceholderPage section="integrations" />} />
+            <Route path="/brain-rules" element={<PlaceholderPage section="brain-rules" />} />
+            <Route path="/security" element={<PlaceholderPage section="security" />} />
+            <Route path="/settings" element={<PlaceholderPage section="settings" />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </AdminLayout>
