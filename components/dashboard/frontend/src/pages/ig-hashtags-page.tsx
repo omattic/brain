@@ -366,7 +366,6 @@ export function IgHashtagsPage() {
                 </label>
               </div>
               <div className="flex items-center gap-2">
-                <Badge className="bg-slate-100 text-slate-700">Rule {index + 1}</Badge>
                 <Button
                   type="button"
                   className="gap-2"
