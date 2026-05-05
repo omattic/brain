@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { ArrowRight, Building2, Plus, UserPlus } from "lucide-react";
+import { ArrowRight, Building2, Plus } from "lucide-react";
 import { Link } from "react-router-dom";
-import { addTenantMember, createTenant } from "@/lib/api";
+import { createTenant } from "@/lib/api";
 import { useAdmin } from "@/lib/admin-context";
 import { formatDateTime } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
@@ -16,9 +16,6 @@ export function TenantsPage() {
   const [tenantName, setTenantName] = useState("");
   const [tenantSlug, setTenantSlug] = useState("");
   const [tenantDescription, setTenantDescription] = useState("");
-  const [memberTenantId, setMemberTenantId] = useState("");
-  const [memberEmail, setMemberEmail] = useState("");
-  const [memberRole, setMemberRole] = useState("admin");
 
   async function onCreateTenant() {
     setSuccess(null);
@@ -38,26 +35,6 @@ export function TenantsPage() {
     setSuccess(`Created tenant ${(payload as any)?.tenant?.name || ""}`.trim());
     await refreshWorkspace();
   }
-
-  async function onAddMember() {
-    setSuccess(null);
-    setError(null);
-    const targetTenantId = memberTenantId || firstTenantId;
-    const { response, payload } = await addTenantMember(targetTenantId, {
-      email: memberEmail,
-      role: memberRole,
-      status: "active",
-    });
-    if (!response.ok) {
-      setError((payload as any)?.error || "Unable to add member");
-      return;
-    }
-    setMemberEmail("");
-    setSuccess(`Added ${(payload as any)?.member?.email || "member"}`);
-    await refreshWorkspace();
-  }
-
-  const firstTenantId = tenants[0]?.id || "";
 
   return (
     <div className="space-y-6">
@@ -92,40 +69,6 @@ export function TenantsPage() {
             </div>
           )}
         </Card>
-
-        <Card className="space-y-4">
-          <div className="flex items-center gap-2">
-            <UserPlus className="h-4 w-4 text-[#635bff]" />
-            <div className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Add member</div>
-          </div>
-          {session?.isSuperAdmin ? (
-            <div className="space-y-3">
-              <select
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900"
-                value={memberTenantId}
-                onChange={(event) => setMemberTenantId(event.target.value)}
-              >
-                <option value="">Select tenant</option>
-                {tenants.map((tenant) => (
-                  <option key={tenant.id} value={tenant.id}>
-                    {tenant.name}
-                  </option>
-                ))}
-              </select>
-              <Input placeholder="ops@omattic.com" value={memberEmail} onChange={(event) => setMemberEmail(event.target.value)} />
-              <Input placeholder="admin" value={memberRole} onChange={(event) => setMemberRole(event.target.value)} />
-                    <Button className="w-full gap-2" onClick={() => void onAddMember()} disabled={!firstTenantId}>
-                <UserPlus className="h-4 w-4" />
-                Add member
-              </Button>
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm leading-6 text-slate-500">
-              Membership creation stays reserved for the super-admin.
-            </div>
-          )}
-        </Card>
-
       </section>
 
       <section className="grid gap-4">
