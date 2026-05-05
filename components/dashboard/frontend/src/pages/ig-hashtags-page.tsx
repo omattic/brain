@@ -147,12 +147,14 @@ function VariantEditor({
   values,
   disabled,
   placeholder,
+  textareaClassName,
   onChange,
 }: {
   label: string;
   values: string[];
   disabled: boolean;
   placeholder: string;
+  textareaClassName?: string;
   onChange: (values: string[]) => void;
 }) {
   function updateValue(index: number, value: string) {
@@ -186,7 +188,7 @@ function VariantEditor({
               value={value}
               disabled={disabled}
               placeholder={placeholder}
-              className="min-h-20 flex-1 bg-white"
+              className={cn("min-h-20 flex-1 bg-white", textareaClassName)}
               onChange={(event) => updateValue(index, event.target.value)}
             />
             <Button
@@ -617,6 +619,7 @@ export function IgHashtagsPage() {
                     values={rule.dms}
                     disabled={!canWriteSelectedTenant}
                     placeholder="Aquí tienes el enlace a la comunidad..."
+                    textareaClassName="min-h-32"
                     onChange={(dms) => updateRule(rule.localId, { dms })}
                   />
                 </div>
