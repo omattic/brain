@@ -23,6 +23,7 @@ import {
   ensureInstagramResponseProfile,
   extractHashtags,
   getMetaWebhookEventById,
+  getInstagramResponseProfile,
   getTenantById,
   listMetaWebhookEvents,
   listTenantComponentConfigs,
@@ -532,6 +533,52 @@ describe("database component", () => {
 
     expect(d1.commentRows.size).toBe(90);
     expect(d1.dmRows.size).toBe(60);
+  });
+
+  it("recovers response rules from profile metadata when split D1 rows are missing", async () => {
+    const d1 = new MockD1Database();
+    configureRuntime({
+      backend: "cloudflare",
+      cloudflare: {
+        d1: {
+          brain: d1 as any,
+        },
+      },
+    });
+
+    d1.profileRows.set("inglesconliza", {
+      profile: "inglesconliza",
+      payload: JSON.stringify({
+        profile: "inglesconliza",
+        rules: [
+          {
+            id: "rule-1",
+            hashtags: ["grupo"],
+            comment: ["Te envié el enlace"],
+            dm: ["Aquí tienes el enlace"],
+            active: true,
+            priority: 0,
+          },
+        ],
+        updatedAt: "2026-05-05T19:56:35.585Z",
+        source: "seed",
+      }),
+      source: "seed",
+      updatedAt: "2026-05-05T19:56:35.585Z",
+      updated_at: "2026-05-05T19:56:35.585Z",
+    });
+
+    const profile = await getInstagramResponseProfile("inglesconliza");
+
+    expect(profile?.rules).toMatchObject([
+      {
+        hashtags: ["grupo"],
+        comment: ["Te envié el enlace"],
+        dm: ["Aquí tienes el enlace"],
+      },
+    ]);
+    expect(d1.commentRows.size).toBe(1);
+    expect(d1.dmRows.size).toBe(1);
   });
 
   it("seeds a profile directly from the mech document", async () => {

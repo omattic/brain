@@ -309,6 +309,34 @@ function buildProfilePayload(profile: string, rules: StoredResponseRule[], updat
   } satisfies InstagramResponseProfile);
 }
 
+function getMetadataUpdatedAt(metadata?: { updatedAt?: string | null; updated_at?: string | null } | null) {
+  return metadata?.updatedAt || metadata?.updated_at || new Date(0).toISOString();
+}
+
+function parseProfilePayload(
+  payload: unknown,
+  fallbackProfile: string,
+  fallbackUpdatedAt?: string,
+  fallbackSource?: string | null
+) {
+  if (!payload) return null;
+
+  try {
+    const parsed = typeof payload === "string" ? JSON.parse(payload) : payload;
+    const rules = normalizeResponseRules(Array.isArray(parsed?.rules) ? parsed.rules : []);
+    if (!rules.length) return null;
+
+    return {
+      profile: sanitizeProfile(parsed?.profile || fallbackProfile),
+      rules,
+      updatedAt: parsed?.updatedAt || fallbackUpdatedAt || new Date(0).toISOString(),
+      source: parsed?.source || fallbackSource || undefined,
+    } satisfies InstagramResponseProfile;
+  } catch {
+    return null;
+  }
+}
+
 function buildTextRowId(
   profile: string,
   hashtag: string,
@@ -398,7 +426,7 @@ function rebuildProfileFromD1Rows(
   return {
     profile: sanitizeProfile(profile),
     rules,
-    updatedAt: metadata?.updatedAt || new Date(0).toISOString(),
+    updatedAt: getMetadataUpdatedAt(metadata),
     source: metadata?.source || undefined,
   } satisfies InstagramResponseProfile;
 }
@@ -626,6 +654,28 @@ export async function getInstagramResponseProfile(profile: string) {
 
     if (!metadata && comments.length === 0 && dms.length === 0) {
       return null;
+    }
+
+    if (metadata && comments.length === 0 && dms.length === 0) {
+      const payloadProfile = parseProfilePayload(
+        metadata.payload,
+        normalizedProfile,
+        getMetadataUpdatedAt(metadata),
+        metadata.source
+      );
+
+      if (payloadProfile?.rules.length) {
+        try {
+          await putInstagramResponseProfile(normalizedProfile, payloadProfile.rules, payloadProfile.source || "metadata-repair");
+        } catch (error) {
+          console.warn("Unable to repair split Instagram response profile rows", error);
+        }
+
+        return {
+          ...payloadProfile,
+          profile: normalizedProfile,
+        } satisfies InstagramResponseProfile;
+      }
     }
 
     return rebuildProfileFromD1Rows(normalizedProfile, comments as D1TextRow[], dms as D1TextRow[], metadata);
