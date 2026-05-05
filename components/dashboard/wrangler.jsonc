@@ -1,0 +1,51 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "brain-dashboard",
+  "main": "src/worker.ts",
+  "assets": {
+    "directory": "frontend/dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": true
+  },
+  "compatibility_date": "2026-04-29",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 1
+    }
+  },
+  "workers_dev": false,
+  "routes": [
+    {
+      "pattern": "brain.omattic.com",
+      "custom_domain": true
+    }
+  ],
+  "vars": {
+    "BRANCH": "main",
+    "DASHBOARD_AUTH_VERIFY_URL": "https://auth.omattic.com/verify"
+  },
+  "d1_databases": [
+    {
+      "binding": "BRAIN_DB",
+      "database_name": "brain-database",
+      "database_id": "fd3d1b71-e6e4-4a86-a4a6-68300c0099b7",
+      "migrations_dir": "../database/migrations"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "BRAIN_CONFIG",
+      "id": "90939e8e10f14dbcae541481245ea258"
+    }
+  ],
+  "queues": {
+    "producers": [
+      { "binding": "META_QUEUE", "queue": "brain-meta" }
+    ]
+  }
+}

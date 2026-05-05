@@ -1,0 +1,23 @@
+name: Deploy dashboard
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "components/dashboard/**"
+      - "components/database/**"
+      - "packages/brain-sdk/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/deploy-component.yml"
+      - ".github/workflows/deploy-dashboard.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/deploy-component.yml
+    with:
+      component_name: dashboard
+      component_path: components/dashboard
+    secrets: inherit

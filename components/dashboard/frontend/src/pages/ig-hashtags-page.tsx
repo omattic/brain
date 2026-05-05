@@ -1,0 +1,372 @@
+import { useEffect, useMemo, useState } from "react";
+import { Hash, Loader2, Plus, Save, Trash2 } from "lucide-react";
+import { getInstagramResponseProfile, putInstagramResponseProfile } from "@/lib/api";
+import { useDashboard } from "@/lib/dashboard-context";
+import type { InstagramResponseRule } from "@/lib/types";
+import { formatDateTime } from "@/lib/utils";
+import { TenantPickerPage } from "@/pages/tenant-picker-page";
+import { PageHeader } from "@/components/page-header";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+
+type DraftRule = {
+  localId: string;
+  id?: string;
+  hashtag: string;
+  comments: string[];
+  dms: string[];
+  priority: number;
+};
+
+function newLocalId() {
+  return `draft-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function normalizeHashtag(value: string) {
+  return value.trim().replace(/^#/, "").toLowerCase();
+}
+
+function createDraftRule(priority: number, hashtag = ""): DraftRule {
+  return {
+    localId: newLocalId(),
+    hashtag,
+    comments: [""],
+    dms: [""],
+    priority,
+  };
+}
+
+function toDraftRules(rules: InstagramResponseRule[]) {
+  return rules.flatMap((rule, ruleIndex) => {
+    const hashtags = rule.hashtags.length ? rule.hashtags : [""];
+    return hashtags.map((hashtag, hashtagIndex) => ({
+      localId: `${rule.id || "rule"}-${ruleIndex}-${hashtagIndex}-${hashtag}`,
+      id: `${rule.id || `rule-${ruleIndex + 1}`}:${hashtag || hashtagIndex}`,
+      hashtag,
+      comments: rule.comment.length ? [...rule.comment] : [""],
+      dms: rule.dm.length ? [...rule.dm] : [""],
+      priority: rule.priority ?? ruleIndex,
+    }));
+  });
+}
+
+function compactStrings(values: string[]) {
+  return values.map((value) => value.trim()).filter(Boolean);
+}
+
+function toApiRules(rules: DraftRule[]) {
+  return rules
+    .map((rule, index) => ({
+      id: rule.id || `dashboard-rule-${index + 1}`,
+      hashtags: [normalizeHashtag(rule.hashtag)].filter(Boolean),
+      comment: compactStrings(rule.comments),
+      dm: compactStrings(rule.dms),
+      active: true,
+      priority: index,
+    }))
+    .filter((rule) => rule.hashtags.length && (rule.comment.length || rule.dm.length));
+}
+
+function VariantEditor({
+  label,
+  values,
+  disabled,
+  placeholder,
+  onChange,
+}: {
+  label: string;
+  values: string[];
+  disabled: boolean;
+  placeholder: string;
+  onChange: (values: string[]) => void;
+}) {
+  function updateValue(index: number, value: string) {
+    onChange(values.map((entry, entryIndex) => (entryIndex === index ? value : entry)));
+  }
+
+  function removeValue(index: number) {
+    const nextValues = values.filter((_, entryIndex) => entryIndex !== index);
+    onChange(nextValues.length ? nextValues : [""]);
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
+        <Button
+          type="button"
+          variant="secondary"
+          className="h-8 gap-2"
+          disabled={disabled}
+          onClick={() => onChange([...values, ""])}
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Add
+        </Button>
+      </div>
+      <div className="space-y-2">
+        {values.map((value, index) => (
+          <div key={index} className="flex gap-2">
+            <Textarea
+              value={value}
+              disabled={disabled}
+              placeholder={placeholder}
+              className="min-h-20 flex-1 bg-white"
+              onChange={(event) => updateValue(index, event.target.value)}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-9 w-9 shrink-0 p-0"
+              disabled={disabled}
+              onClick={() => removeValue(index)}
+              title={`Remove ${label.toLowerCase()} response`}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function IgHashtagsPage() {
+  const {
+    selectedTenant,
+    selectedTenantId,
+    canWriteSelectedTenant,
+    setError,
+    setSuccess,
+  } = useDashboard();
+  const [profileName, setProfileName] = useState("");
+  const [updatedAt, setUpdatedAt] = useState("");
+  const [source, setSource] = useState("");
+  const [rules, setRules] = useState<DraftRule[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const saveableRules = useMemo(() => toApiRules(rules), [rules]);
+
+  useEffect(() => {
+    if (!selectedTenantId) return;
+
+    const tenantId = selectedTenantId;
+    let cancelled = false;
+    async function loadProfile() {
+      setLoading(true);
+      setError(null);
+      const { response, payload } = await getInstagramResponseProfile(tenantId);
+      if (cancelled) return;
+      if (!response.ok) {
+        setError((payload as any)?.error || "Unable to load Instagram hashtag responses");
+        setLoading(false);
+        return;
+      }
+
+      setProfileName(payload?.profileName || payload?.profile?.profile || "");
+      setUpdatedAt(payload?.profile?.updatedAt || "");
+      setSource(payload?.profile?.source || "");
+      setRules(toDraftRules(payload?.profile?.rules || []));
+      setLoading(false);
+    }
+
+    void loadProfile();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedTenantId, setError]);
+
+  function updateRule(localId: string, patch: Partial<DraftRule>) {
+    setRules((currentRules) =>
+      currentRules.map((rule) => (rule.localId === localId ? { ...rule, ...patch } : rule))
+    );
+  }
+
+  function removeRule(localId: string) {
+    setRules((currentRules) => currentRules.filter((rule) => rule.localId !== localId));
+  }
+
+  function addRule() {
+    setRules((currentRules) => [...currentRules, createDraftRule(currentRules.length)]);
+  }
+
+  async function saveRules() {
+    if (!selectedTenantId) return;
+    setSaving(true);
+    setSuccess(null);
+    setError(null);
+    const { response, payload } = await putInstagramResponseProfile(selectedTenantId, {
+      profileName,
+      rules: saveableRules,
+    });
+
+    if (!response.ok) {
+      setError((payload as any)?.error || "Unable to save Instagram hashtag responses");
+      setSaving(false);
+      return;
+    }
+
+    setProfileName(payload?.profileName || payload?.profile?.profile || profileName);
+    setUpdatedAt(payload?.profile?.updatedAt || "");
+    setSource(payload?.profile?.source || "");
+    setRules(toDraftRules(payload?.profile?.rules || []));
+    setSuccess("Instagram hashtag responses saved");
+    setSaving(false);
+  }
+
+  if (!selectedTenant) {
+    return <TenantPickerPage />;
+  }
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow={selectedTenant.name}
+        title="IG -> Hashtags"
+        description="Configure the comment and DM variants that Instagram automation can randomly select for each hashtag."
+        actions={
+          <div className="flex items-center gap-2">
+            <Badge className="bg-slate-100 text-slate-700">{profileName || "profile pending"}</Badge>
+            <Button
+              className="gap-2"
+              disabled={!canWriteSelectedTenant || loading || saving}
+              onClick={() => void saveRules()}
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Save changes
+            </Button>
+          </div>
+        }
+      />
+
+      <Card className="grid gap-4 lg:grid-cols-[0.8fr,1.2fr]">
+        <div>
+          <div className="text-sm font-semibold text-foreground">Response profile</div>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">
+            This profile is also written to the tenant Meta config as <span className="font-mono">INSTAGRAM_RESPONSE_PROFILE</span>.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-[1fr,auto] sm:items-end">
+          <label className="space-y-2 text-sm font-medium text-foreground">
+            Profile name
+            <Input
+              value={profileName}
+              disabled={!canWriteSelectedTenant}
+              placeholder="inglesconliza"
+              onChange={(event) => setProfileName(event.target.value)}
+            />
+          </label>
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-500">
+            Updated {formatDateTime(updatedAt)}
+            {source ? <span> · {source}</span> : null}
+          </div>
+        </div>
+      </Card>
+
+      {!canWriteSelectedTenant ? (
+        <Card className="border-amber-200 bg-amber-50 text-sm leading-6 text-amber-800">
+          Your tenant role is read-only. You can inspect hashtag responses, but saving changes requires owner, admin, or editor access.
+        </Card>
+      ) : null}
+
+      {loading ? (
+        <Card className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading Instagram hashtag responses...
+        </Card>
+      ) : null}
+
+      {!loading && !rules.length ? (
+        <Card className="space-y-4 border-dashed">
+          <div className="flex items-center gap-2">
+            <Hash className="h-4 w-4 text-brand" />
+            <div className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              No hashtag rules yet
+            </div>
+          </div>
+          <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+            Add the first hashtag, then define one or more public comment responses and one or more private DM responses.
+          </p>
+          <Button className="gap-2" disabled={!canWriteSelectedTenant} onClick={addRule}>
+            <Plus className="h-4 w-4" />
+            Add hashtag
+          </Button>
+        </Card>
+      ) : null}
+
+      <div className="space-y-4">
+        {rules.map((rule, index) => (
+          <Card key={rule.localId} className="space-y-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="grid flex-1 gap-3 sm:max-w-xs">
+                <label className="space-y-2 text-sm font-medium text-foreground">
+                  Hashtag
+                  <div className="relative">
+                    <Hash className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      value={rule.hashtag}
+                      disabled={!canWriteSelectedTenant}
+                      placeholder="grupo"
+                      className="bg-white pl-8"
+                      onChange={(event) => updateRule(rule.localId, { hashtag: event.target.value })}
+                    />
+                  </div>
+                </label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge className="bg-slate-100 text-slate-700">Rule {index + 1}</Badge>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="gap-2 text-rose-600 hover:text-rose-700"
+                  disabled={!canWriteSelectedTenant}
+                  onClick={() => removeRule(rule.localId)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Remove
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid gap-5 xl:grid-cols-2">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <VariantEditor
+                  label="Comment responses"
+                  values={rule.comments}
+                  disabled={!canWriteSelectedTenant}
+                  placeholder="Te envié el enlace por mensaje directo."
+                  onChange={(comments) => updateRule(rule.localId, { comments })}
+                />
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <VariantEditor
+                  label="DM responses"
+                  values={rule.dms}
+                  disabled={!canWriteSelectedTenant}
+                  placeholder="Aquí tienes el enlace a la comunidad..."
+                  onChange={(dms) => updateRule(rule.localId, { dms })}
+                />
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      {rules.length ? (
+        <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <Button variant="secondary" className="gap-2" disabled={!canWriteSelectedTenant} onClick={addRule}>
+            <Plus className="h-4 w-4" />
+            Add hashtag
+          </Button>
+          <div className="text-sm text-muted-foreground">
+            {saveableRules.length} saveable hashtag rule{saveableRules.length === 1 ? "" : "s"}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
