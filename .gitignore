@@ -6,3 +6,4 @@ node_modules/
 components/slack/R3JS_CREDS.md
 components/admin/frontend/dist/
 components/dashboard/frontend/dist/
+components/database/.generated/

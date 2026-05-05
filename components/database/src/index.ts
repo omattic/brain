@@ -773,7 +773,12 @@ export async function ensureInstagramResponseProfile(
     return existing;
   }
 
-  return putInstagramResponseProfile(profile, fallbackRules, source);
+  const normalizedFallbackRules = normalizeResponseRules(fallbackRules);
+  if (existing && normalizedFallbackRules.length === 0) {
+    return existing;
+  }
+
+  return putInstagramResponseProfile(profile, normalizedFallbackRules, source);
 }
 
 async function resolveInstagramResponseFromD1(

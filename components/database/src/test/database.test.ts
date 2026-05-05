@@ -581,6 +581,38 @@ describe("database component", () => {
     expect(d1.dmRows.size).toBe(1);
   });
 
+  it("does not overwrite an existing empty profile with empty fallback rules", async () => {
+    const d1 = new MockD1Database();
+    configureRuntime({
+      backend: "cloudflare",
+      cloudflare: {
+        d1: {
+          brain: d1 as any,
+        },
+      },
+    });
+
+    d1.profileRows.set("inglesconliza", {
+      profile: "inglesconliza",
+      payload: JSON.stringify({
+        profile: "inglesconliza",
+        rules: [],
+        updatedAt: "2026-05-05T20:19:18.288Z",
+        source: "seed",
+      }),
+      source: "seed",
+      updatedAt: "2026-05-05T20:19:18.288Z",
+      updated_at: "2026-05-05T20:19:18.288Z",
+    });
+
+    const profile = await ensureInstagramResponseProfile("inglesconliza", []);
+
+    expect(profile.rules).toEqual([]);
+    expect(d1.profileRows.get("inglesconliza").updatedAt).toBe("2026-05-05T20:19:18.288Z");
+    expect(d1.commentRows.size).toBe(0);
+    expect(d1.dmRows.size).toBe(0);
+  });
+
   it("seeds a profile directly from the mech document", async () => {
     const mechPath = path.resolve(process.cwd(), "../slack/MECH.md");
     const content = readFileSync(mechPath, "utf8");
