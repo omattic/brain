@@ -1,75 +1,33 @@
-import { useState } from "react";
-import { ArrowRight, Building2, Plus } from "lucide-react";
+import { ArrowRight, Building2, ExternalLink } from "lucide-react";
 import { Link } from "react-router-dom";
-import { createTenant } from "@/lib/api";
 import { useAdmin } from "@/lib/admin-context";
 import { formatDateTime } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 
 export function TenantsPage() {
-  const { session, tenants, refreshWorkspace, setError, setSuccess } = useAdmin();
-  const [tenantName, setTenantName] = useState("");
-  const [tenantSlug, setTenantSlug] = useState("");
-  const [tenantDescription, setTenantDescription] = useState("");
-
-  async function onCreateTenant() {
-    setSuccess(null);
-    setError(null);
-    const { response, payload } = await createTenant({
-      name: tenantName,
-      slug: tenantSlug || undefined,
-      description: tenantDescription || undefined,
-    });
-    if (!response.ok) {
-      setError((payload as any)?.error || "Unable to create tenant");
-      return;
-    }
-    setTenantName("");
-    setTenantSlug("");
-    setTenantDescription("");
-    setSuccess(`Created tenant ${(payload as any)?.tenant?.name || ""}`.trim());
-    await refreshWorkspace();
-  }
+  const { tenants } = useAdmin();
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Tenants & Clients"
-        description="Manage infrastructure nodes and client environments."
+        title="Brain Tenants"
+        description="Select an Account-owned tenant to manage Brain-specific Meta account mappings, runtime config, and operational state."
+        actions={
+          <a href="https://account.omattic.com/admin/tenants">
+            <Button variant="secondary" className="gap-2">
+              Manage in Account
+              <ExternalLink className="h-4 w-4" />
+            </Button>
+          </a>
+        }
       />
 
-      <section className="grid gap-6 xl:grid-cols-2">
-        <Card className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-[#635bff]" />
-            <div className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">New tenant</div>
-          </div>
-          {session?.isSuperAdmin ? (
-            <div className="space-y-3">
-              <Input placeholder="Ingles Con Liza" value={tenantName} onChange={(event) => setTenantName(event.target.value)} />
-              <Input placeholder="ingles-con-liza" value={tenantSlug} onChange={(event) => setTenantSlug(event.target.value)} />
-              <Textarea
-                placeholder="Primary tenant for Instagram automation"
-                value={tenantDescription}
-                onChange={(event) => setTenantDescription(event.target.value)}
-              />
-              <Button className="w-full gap-2" onClick={() => void onCreateTenant()}>
-                <Plus className="h-4 w-4" />
-                Create tenant
-              </Button>
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm leading-6 text-slate-500">
-              Only the super-admin can create the first tenant workspaces.
-            </div>
-          )}
-        </Card>
-      </section>
+      <Card className="border-blue-100 bg-blue-50/80 text-sm leading-6 text-blue-900 shadow-none">
+        Tenant identity, members, roles, and service links are managed in Account. Brain Admin only stores and edits Brain runtime configuration keyed by the Account tenant ID.
+      </Card>
 
       <section className="grid gap-4">
         {tenants.map((tenant) => (
@@ -87,7 +45,7 @@ export function TenantsPage() {
               </div>
               <Link to={`/tenants/${tenant.id}`}>
                 <Button variant="secondary" className="gap-2">
-                  Open details
+                  Open Brain config
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
@@ -95,18 +53,10 @@ export function TenantsPage() {
 
             <div className="grid gap-4 md:grid-cols-3">
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Members</div>
-                <div className="space-y-2">
-                  {tenant.members.length ? (
-                    tenant.members.slice(0, 3).map((member) => (
-                      <div key={member.id} className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 text-sm">
-                        <span className="truncate">{member.email}</span>
-                        <span className="text-slate-500">{member.role}</span>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-sm text-slate-400">No members yet.</div>
-                  )}
+                <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Account tenant</div>
+                <div className="space-y-2 text-sm text-slate-600">
+                  <div className="truncate font-mono text-xs">{tenant.id}</div>
+                  <div>{tenant.members.length} member{tenant.members.length === 1 ? "" : "s"} managed by Account</div>
                 </div>
               </div>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -144,6 +94,15 @@ export function TenantsPage() {
             </div>
           </Card>
         ))}
+
+        {!tenants.length ? (
+          <Card className="text-sm text-slate-500">
+            <div className="flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
+              No Account tenants are currently visible for Brain.
+            </div>
+          </Card>
+        ) : null}
       </section>
     </div>
   );

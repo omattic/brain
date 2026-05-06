@@ -43,27 +43,6 @@ export async function getDiscoveredMetaAccounts(input: { limit?: number } = {}) 
   return request<{ accounts: DiscoveredMetaAccount[] }>(`/api/meta-accounts/discovered?${params.toString()}`);
 }
 
-export async function createTenant(input: {
-  name: string;
-  slug?: string;
-  description?: string;
-}) {
-  return request<{ tenant: Tenant }>("/api/tenants", {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
-}
-
-export async function addTenantMember(
-  tenantId: string,
-  input: { email: string; role?: string; status?: string }
-) {
-  return request(`/api/tenants/${tenantId}/members`, {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
-}
-
 export async function addTenantMetaAccount(
   tenantId: string,
   input: { provider: string; accountId: string; username?: string; label?: string }

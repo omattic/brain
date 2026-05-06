@@ -82,7 +82,8 @@ Notes:
 - `GET /` serves the React frontend from `components/admin/frontend/dist` through Cloudflare `ASSETS`.
 - the frontend verifies the shared Omattic auth session on load and redirects to `auth.omattic.com` automatically when no valid session is present
 - `/api/*` routes accept the shared `session_token` cookie or a bearer JWT and verify it through `auth.omattic.com`
-- tenant identity, memberships, and roles are resolved from `account.omattic.com` first
+- tenant identity, memberships, roles, and service links are managed in `account.omattic.com/admin/tenants`
+- Brain Admin resolves tenants from `account.omattic.com` but only edits Brain-specific Meta mappings, runtime config, and monitoring state
 - `ACCOUNT_TENANT_AUTHORITY=strict` makes `account.omattic.com` the runtime tenant authority
 
 ### Not Publicly Routed

@@ -60,9 +60,7 @@ Current `brain-admin` endpoints already available:
 
 - `GET /api/session`
 - `GET /api/tenants`
-- `POST /api/tenants`
 - `GET /api/tenants/:tenantId`
-- `POST /api/tenants/:tenantId/members`
 - `POST /api/tenants/:tenantId/meta-accounts`
 - `GET /api/tenants/:tenantId/configs`
 - `PUT /api/tenants/:tenantId/configs`
@@ -81,8 +79,7 @@ Current `brain-admin` endpoints already available:
 
 - `Tenants`
   - tenant list from `GET /api/tenants`
-  - tenant create from `POST /api/tenants`
-  - member create from `POST /api/tenants/:tenantId/members`
+  - tenant and member management links to `https://account.omattic.com/admin/tenants`
   - Meta account registration from `POST /api/tenants/:tenantId/meta-accounts`
 
 - `Tenant Details`

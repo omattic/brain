@@ -413,7 +413,7 @@ describe("admin worker", () => {
     expect(kvMock.put).toHaveBeenCalled();
   });
 
-  it("blocks tenant creation for non-super-admin users", async () => {
+  it("does not expose tenant creation from Brain Admin", async () => {
     const response = await worker.fetch(
       new Request("https://brain-admin.omattic.com/api/tenants", {
         method: "POST",
@@ -431,11 +431,11 @@ describe("admin worker", () => {
       }
     );
 
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(404);
     expect(databaseMocks.createTenant).not.toHaveBeenCalled();
   });
 
-  it("blocks member creation for non-super-admin users", async () => {
+  it("does not expose member creation from Brain Admin", async () => {
     const response = await worker.fetch(
       new Request("https://brain-admin.omattic.com/api/tenants/tenant-1/members", {
         method: "POST",
@@ -453,7 +453,7 @@ describe("admin worker", () => {
       }
     );
 
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(404);
     expect(databaseMocks.addTenantMember).not.toHaveBeenCalled();
   });
 

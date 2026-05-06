@@ -30,6 +30,7 @@ Owned by Account:
 - tenant memberships
 - tenant roles
 - tenant service links
+- tenant/member management UI at `https://account.omattic.com/admin/tenants`
 
 Owned by Brain:
 
@@ -37,3 +38,4 @@ Owned by Brain:
 - Meta account mappings used by Brain runtime
 - component runtime config mirrored into `BRAIN_CONFIG`
 - webhook events, response logs, recovery state, and queue processing records
+- Brain Admin UI for tenant-scoped Meta mappings, runtime config, and operational recovery

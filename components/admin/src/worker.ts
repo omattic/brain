@@ -6,8 +6,6 @@ import {
   sendToBus,
 } from "brain-sdk";
 import {
-  addTenantMember,
-  createTenant,
   getMetaWebhookEventById,
   getTenantById,
   listDiscoveredMetaAccounts,
@@ -21,12 +19,7 @@ import {
   updateMetaWebhookEventStatus,
   upsertTenantComponentConfig,
 } from "brain-database";
-import {
-  addAccountTenantMember,
-  createAccountTenant,
-  fetchAccountTenantAccess,
-  type AccountTenant,
-} from "./account";
+import { fetchAccountTenantAccess, type AccountTenant } from "./account";
 import { verifyAdminSession } from "./auth";
 
 declare const Response: any;
@@ -273,14 +266,6 @@ async function requireTenantWriteAccess(env: Env, session: { email: string; toke
   };
 }
 
-function requireSuperAdmin(session: { email: string }) {
-  if (isSuperAdmin(session)) {
-    return null;
-  }
-
-  return json({ error: "Forbidden" }, { status: 403 });
-}
-
 async function recoverEvents(request: Request, env: Env) {
   const { session, response } = await requireSession(request);
   if (response) return response;
@@ -383,40 +368,6 @@ export default {
       });
     }
 
-    if (url.pathname === "/api/tenants" && request.method === "POST") {
-      const forbidden = requireSuperAdmin(session);
-      if (forbidden) {
-        return forbidden;
-      }
-      const body = await parseJson(request);
-      if (!body?.name) {
-        return json({ error: "Tenant name is required" }, { status: 400 });
-      }
-
-      let tenant = null;
-      try {
-        tenant = await createAccountTenant(env, session.token, {
-          name: `${body.name}`,
-          slug: body.slug ? `${body.slug}` : undefined,
-          description: body.description ? `${body.description}` : undefined,
-          service: "brain",
-        });
-      } catch {
-        if (shouldUseStrictAccountTenants(env)) {
-          return json({ error: "Account tenant service unavailable" }, { status: 502 });
-        }
-        tenant = await createTenant({
-          name: `${body.name}`,
-          slug: body.slug ? `${body.slug}` : undefined,
-          description: body.description ? `${body.description}` : undefined,
-        });
-      }
-
-      return json({
-        tenant: await loadTenantBundle(tenant.id, tenant as AccountTenant),
-      });
-    }
-
     if (segments[0] === "api" && segments[1] === "tenants" && segments[2] && request.method === "GET" && segments.length === 3) {
       const accessCheck = await requireTenantReadAccess(env, session, segments[2]);
       if (!accessCheck.ok) {
@@ -431,37 +382,6 @@ export default {
       }
 
       return json({ tenant });
-    }
-
-    if (segments[0] === "api" && segments[1] === "tenants" && segments[2] && segments[3] === "members" && request.method === "POST") {
-      const forbidden = requireSuperAdmin(session);
-      if (forbidden) {
-        return forbidden;
-      }
-      const body = await parseJson(request);
-      if (!body?.email) {
-        return json({ error: "Member email is required" }, { status: 400 });
-      }
-
-      let member = null;
-      try {
-        member = await addAccountTenantMember(env, session.token, segments[2], {
-          email: `${body.email}`,
-          role: body.role ? `${body.role}` : undefined,
-          status: body.status,
-        });
-      } catch {
-        if (shouldUseStrictAccountTenants(env)) {
-          return json({ error: "Account tenant service unavailable" }, { status: 502 });
-        }
-        member = await addTenantMember(segments[2], {
-          email: `${body.email}`,
-          role: body.role ? `${body.role}` : undefined,
-          status: body.status,
-        });
-      }
-
-      return json({ member });
     }
 
     if (segments[0] === "api" && segments[1] === "tenants" && segments[2] && segments[3] === "meta-accounts" && request.method === "POST") {

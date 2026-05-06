@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, CreditCard, MousePointer2, Save, Settings2, UserPlus, Users } from "lucide-react";
+import { ArrowLeft, CreditCard, ExternalLink, MousePointer2, Save, Settings2 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
-import { addTenantMember, addTenantMetaAccount, getDiscoveredMetaAccounts, getTenant, putTenantConfig } from "@/lib/api";
+import { addTenantMetaAccount, getDiscoveredMetaAccounts, getTenant, putTenantConfig } from "@/lib/api";
 import { useAdmin } from "@/lib/admin-context";
 import type { DiscoveredMetaAccount, Tenant } from "@/lib/types";
 import { formatDateTime } from "@/lib/utils";
@@ -12,7 +12,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
-type DetailTab = "members" | "accounts" | "config";
+type DetailTab = "accounts" | "config";
 
 export function TenantDetailsPage() {
   const { tenantId } = useParams();
@@ -20,9 +20,7 @@ export function TenantDetailsPage() {
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [discoveredAccounts, setDiscoveredAccounts] = useState<DiscoveredMetaAccount[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<DetailTab>("members");
-  const [memberEmail, setMemberEmail] = useState("");
-  const [memberRole, setMemberRole] = useState("admin");
+  const [activeTab, setActiveTab] = useState<DetailTab>("accounts");
   const [accountProvider, setAccountProvider] = useState("instagram");
   const [accountId, setAccountId] = useState("");
   const [accountUsername, setAccountUsername] = useState("");
@@ -71,24 +69,6 @@ export function TenantDetailsPage() {
     } catch {
       return value;
     }
-  }
-
-  async function onAddMember() {
-    if (!tenantId) return;
-    setSuccess(null);
-    setError(null);
-    const { response, payload } = await addTenantMember(tenantId, {
-      email: memberEmail,
-      role: memberRole,
-      status: "active",
-    });
-    if (!response.ok) {
-      setError((payload as any)?.error || "Unable to add member");
-      return;
-    }
-    setMemberEmail("");
-    setSuccess(`Added ${(payload as any)?.member?.email || "member"}`);
-    await Promise.all([loadTenant(), refreshWorkspace()]);
   }
 
   async function onAddAccount() {
@@ -144,14 +124,20 @@ export function TenantDetailsPage() {
       </div>
 
       <PageHeader
-        eyebrow="Tenant Details"
+        eyebrow="Brain Tenant"
         title={tenant?.name || (loading ? "Loading tenant..." : "Tenant not found")}
-        description={tenant?.description || "Inspect memberships, Meta accounts, and runtime configuration for this tenant."}
+        description={tenant?.description || "Manage Brain-specific Meta account mappings and runtime configuration for this Account-owned tenant."}
         actions={
           tenant ? (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Badge>{tenant.status}</Badge>
               <Badge className="border-[#e2e8f0] bg-slate-100 text-slate-700">{tenant.slug}</Badge>
+              <a href={`https://account.omattic.com/admin/tenants?tenant=${encodeURIComponent(tenant.id)}`}>
+                <Button variant="secondary" className="gap-2">
+                  Manage members in Account
+                  <ExternalLink className="h-4 w-4" />
+                </Button>
+              </a>
             </div>
           ) : null
         }
@@ -159,9 +145,12 @@ export function TenantDetailsPage() {
 
       {tenant ? (
         <>
+          <Card className="border-blue-100 bg-blue-50/80 text-sm leading-6 text-blue-900 shadow-none">
+            Account owns tenant identity and membership. Brain Admin can read those members for authorization, but edits only Brain-specific mappings and runtime config.
+          </Card>
+
           <div className="flex flex-wrap gap-2">
             {[
-              { id: "members" as const, label: "Members", icon: Users },
               { id: "accounts" as const, label: "Meta Accounts", icon: CreditCard },
               { id: "config" as const, label: "Runtime Config", icon: Settings2 },
             ].map((item) => (
@@ -180,58 +169,6 @@ export function TenantDetailsPage() {
               </button>
             ))}
           </div>
-
-          {activeTab === "members" ? (
-            <div className="grid gap-6 xl:grid-cols-[0.9fr,1.1fr]">
-              <Card className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <UserPlus className="h-4 w-4 text-[#635bff]" />
-                  <div className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Add member</div>
-                </div>
-                {session?.isSuperAdmin ? (
-                  <div className="space-y-3">
-                    <Input placeholder="ops@omattic.com" value={memberEmail} onChange={(event) => setMemberEmail(event.target.value)} />
-                    <Input placeholder="admin" value={memberRole} onChange={(event) => setMemberRole(event.target.value)} />
-                    <Button className="w-full gap-2" onClick={() => void onAddMember()}>
-                      <UserPlus className="h-4 w-4" />
-                      Add member
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm leading-6 text-slate-500">
-                    Membership creation stays reserved for the super-admin.
-                  </div>
-                )}
-              </Card>
-
-              <Card className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-[#635bff]" />
-                  <div className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Tenant members</div>
-                </div>
-                <div className="space-y-3">
-                  {tenant.members.length ? tenant.members.map((member) => (
-                    <div key={member.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <div className="text-sm font-medium text-slate-950">{member.email}</div>
-                          <div className="mt-1 text-xs text-slate-500">Joined {formatDateTime(member.createdAt)}</div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge>{member.role}</Badge>
-                          <Badge className="border-[#e2e8f0] bg-slate-100 text-slate-700">{member.status}</Badge>
-                        </div>
-                      </div>
-                    </div>
-                  )) : (
-                    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-sm text-slate-500">
-                      No members have been assigned yet.
-                    </div>
-                  )}
-                </div>
-              </Card>
-            </div>
-          ) : null}
 
           {activeTab === "accounts" ? (
             <div className="grid gap-6 xl:grid-cols-[0.95fr,1.05fr]">
