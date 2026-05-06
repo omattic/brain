@@ -99,7 +99,9 @@ Workspace token key examples:
 
 ### `BRAIN_CONFIG`
 
-Used for tenant-scoped component config cached out of D1 by `brain-admin`.
+Used for Brain service config cached out of D1 by `brain-admin`.
+
+Tenant identity and memberships are owned by `account.omattic.com`. Brain stores service-specific operational config keyed by the Account-owned `tenant_id`.
 
 Key examples:
 
@@ -123,7 +125,8 @@ Database ownership:
 
 - `components/database` owns migrations and schema
 - `components/support` consumes the same DB
-- `components/admin` manages tenant, account, and runtime-config records in the same DB
+- `components/admin` manages Brain service config, Meta account mappings, and monitoring records in the same DB
+- `account.omattic.com` owns canonical tenant/workspace records and memberships
 
 ## Secrets vs Vars
 

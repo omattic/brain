@@ -193,6 +193,52 @@ describe("dashboard worker", () => {
           });
         }
 
+        if (`${input}`.startsWith("https://account.omattic.com/api/v1/tenants")) {
+          const authHeader = init?.headers?.authorization || "";
+          const role = `${authHeader}`.includes("editor-token") ? "editor" : "viewer";
+          if (`${authHeader}`.includes("no-access-token")) {
+            return Response.json({
+              isSuperAdmin: false,
+              tenantIds: [],
+              tenantAccess: [],
+              tenants: [],
+            });
+          }
+          if (`${authHeader}`.includes("empty-account-token")) {
+            return Response.json({
+              isSuperAdmin: true,
+              tenantIds: [],
+              tenantAccess: [],
+              tenants: [],
+            });
+          }
+          return Response.json({
+            isSuperAdmin: `${authHeader}`.includes("viewer-token") || `${authHeader}`.includes("editor-token") ? false : true,
+            tenantIds: ["tenant-1"],
+            tenantAccess: [
+              {
+                tenantId: "tenant-1",
+                role,
+                status: "active",
+                canWrite: role === "editor",
+              },
+            ],
+            tenants: [
+              {
+                id: "tenant-1",
+                name: "Ingles Con Liza",
+                slug: "ingles-con-liza",
+                description: "Primary tenant",
+                status: "active",
+                createdAt: "2026-04-29T00:00:00.000Z",
+                updatedAt: "2026-04-29T00:00:00.000Z",
+                members: [],
+                serviceLinks: [],
+              },
+            ],
+          });
+        }
+
         throw new Error(`Unexpected fetch target: ${input}`);
       })
     );
@@ -242,7 +288,24 @@ describe("dashboard worker", () => {
     const payload = await response.json();
     expect(payload.tenants).toHaveLength(1);
     expect(payload.tenants[0].id).toBe("tenant-1");
-    expect(databaseMocks.listTenantMembershipsByEmail).toHaveBeenCalledWith("viewer@omattic.com");
+    expect(databaseMocks.listTenantMembershipsByEmail).not.toHaveBeenCalled();
+  });
+
+  it("falls back to legacy tenants for super-admins while Account is not backfilled", async () => {
+    const response = await worker.fetch(
+      new Request("https://brain.omattic.com/api/tenants", {
+        headers: {
+          cookie: "session_token=empty-account-token",
+        },
+      }),
+      env
+    );
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.tenants).toHaveLength(1);
+    expect(payload.tenants[0].id).toBe("tenant-1");
+    expect(databaseMocks.listTenants).toHaveBeenCalled();
   });
 
   it("returns the configured Instagram response profile for a readable tenant", async () => {

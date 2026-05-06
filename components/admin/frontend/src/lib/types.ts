@@ -12,6 +12,8 @@ export type TenantMember = {
   email: string;
   role: string;
   status: string;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export type TenantMetaAccount = {

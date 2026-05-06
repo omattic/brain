@@ -21,6 +21,12 @@ import {
   updateMetaWebhookEventStatus,
   upsertTenantComponentConfig,
 } from "brain-database";
+import {
+  addAccountTenantMember,
+  createAccountTenant,
+  fetchAccountTenantAccess,
+  type AccountTenant,
+} from "./account";
 import { verifyAdminSession } from "./auth";
 
 declare const Response: any;
@@ -35,6 +41,8 @@ interface Env extends Record<string, unknown> {
   BRAIN_CONFIG: CloudflareKVNamespaceLike;
   META_QUEUE: CloudflareQueueLike;
   ASSETS: AssetFetcher;
+  ACCOUNT_SERVICE_ORIGIN?: string;
+  ACCOUNT_TENANT_AUTHORITY?: string;
 }
 
 const SUPER_ADMIN_EMAIL = "guerrerocarlos@gmail.com";
@@ -77,13 +85,17 @@ async function parseJson(request: Request) {
   return request.json().catch(() => ({}));
 }
 
-async function loadTenantBundle(tenantId: string) {
-  const tenant = await getTenantById(tenantId);
+function shouldUseStrictAccountTenants(env: Env) {
+  return `${env.ACCOUNT_TENANT_AUTHORITY || ""}`.trim().toLowerCase() === "strict";
+}
+
+async function loadTenantBundle(tenantId: string, accountTenant?: AccountTenant | null) {
+  const tenant = accountTenant || await getTenantById(tenantId);
   if (!tenant) {
     return null;
   }
 
-  const [members, metaAccounts, configs] = await Promise.all([
+  const [localMembers, metaAccounts, configs] = await Promise.all([
     listTenantMembers(tenantId),
     listTenantMetaAccounts(tenantId),
     listTenantComponentConfigs(tenantId),
@@ -91,13 +103,18 @@ async function loadTenantBundle(tenantId: string) {
 
   return {
     ...tenant,
-    members,
+    members: "members" in tenant && Array.isArray(tenant.members) ? tenant.members : localMembers,
     metaAccounts,
     configs,
   };
 }
 
-async function loadAllTenantBundles(tenantIds?: string[]) {
+async function loadAllTenantBundles(tenantIds?: string[], accountTenants: AccountTenant[] = []) {
+  if (accountTenants.length) {
+    const visible = tenantIds?.length ? accountTenants.filter((tenant) => tenantIds.includes(tenant.id)) : accountTenants;
+    return Promise.all(visible.map((tenant) => loadTenantBundle(tenant.id, tenant)));
+  }
+
   const rows = await listTenants();
   const filteredRows = tenantIds?.length ? rows.filter((tenant) => tenantIds.includes(tenant.id)) : rows;
   return Promise.all(filteredRows.map((tenant) => loadTenantBundle(tenant.id)));
@@ -175,7 +192,7 @@ function canWriteTenantRole(role: string | undefined | null) {
   return TENANT_WRITE_ROLES.has(`${role || ""}`.trim().toLowerCase());
 }
 
-async function getSessionAccess(session: { email: string }) {
+async function getLegacySessionAccess(session: { email: string }) {
   const superAdmin = isSuperAdmin(session);
   const memberships = superAdmin ? [] : await listTenantMembershipsByEmail(session.email);
   const activeMemberships = memberships.filter((membership) => membership.status === "active");
@@ -184,12 +201,42 @@ async function getSessionAccess(session: { email: string }) {
   return {
     superAdmin,
     memberships: activeMemberships,
-    tenantIds,
+    tenantIds: superAdmin ? (await listTenants()).map((tenant) => tenant.id) : tenantIds,
+    tenantAccess: activeMemberships.map((membership) => ({
+      tenantId: membership.tenantId,
+      role: membership.role,
+      status: membership.status,
+      canWrite: canWriteTenantRole(membership.role),
+    })),
+    accountTenants: [],
   };
 }
 
-async function requireTenantReadAccess(session: { email: string }, tenantId: string) {
-  const access = await getSessionAccess(session);
+async function getSessionAccess(env: Env, session: { email: string; token?: string }) {
+  if (session.token) {
+    try {
+      const accountAccess = await fetchAccountTenantAccess(env, session.token);
+      if (accountAccess.tenantIds.length || shouldUseStrictAccountTenants(env)) {
+        return {
+          superAdmin: accountAccess.isSuperAdmin,
+          memberships: [],
+          tenantIds: accountAccess.tenantIds,
+          tenantAccess: accountAccess.tenantAccess,
+          accountTenants: accountAccess.tenants,
+        };
+      }
+    } catch (error) {
+      if (shouldUseStrictAccountTenants(env)) {
+        throw error;
+      }
+    }
+  }
+
+  return getLegacySessionAccess(session);
+}
+
+async function requireTenantReadAccess(env: Env, session: { email: string; token?: string }, tenantId: string) {
+  const access = await getSessionAccess(env, session);
   if (access.superAdmin) {
     return { ok: true as const, access };
   }
@@ -204,8 +251,8 @@ async function requireTenantReadAccess(session: { email: string }, tenantId: str
   };
 }
 
-async function requireTenantWriteAccess(session: { email: string }, tenantId: string) {
-  const readAccess = await requireTenantReadAccess(session, tenantId);
+async function requireTenantWriteAccess(env: Env, session: { email: string; token?: string }, tenantId: string) {
+  const readAccess = await requireTenantReadAccess(env, session, tenantId);
   if (!readAccess.ok) {
     return readAccess;
   }
@@ -215,7 +262,8 @@ async function requireTenantWriteAccess(session: { email: string }, tenantId: st
   }
 
   const membership = readAccess.access.memberships.find((entry) => entry.tenantId === tenantId) || null;
-  if (membership && canWriteTenantRole(membership.role)) {
+  const tenantAccess = readAccess.access.tenantAccess.find((entry) => entry.tenantId === tenantId) || null;
+  if ((membership && canWriteTenantRole(membership.role)) || tenantAccess?.canWrite) {
     return readAccess;
   }
 
@@ -233,10 +281,10 @@ function requireSuperAdmin(session: { email: string }) {
   return json({ error: "Forbidden" }, { status: 403 });
 }
 
-async function recoverEvents(request: Request) {
+async function recoverEvents(request: Request, env: Env) {
   const { session, response } = await requireSession(request);
   if (response) return response;
-  const access = await getSessionAccess(session);
+  const access = await getSessionAccess(env, session);
 
   const body = await parseJson(request);
   const limit = Math.max(1, Math.min(Number(body?.limit) || 25, 100));
@@ -306,7 +354,7 @@ export default {
     const session = authResult.session!;
 
     if (url.pathname === "/api/session" && request.method === "GET") {
-      const access = await getSessionAccess(session);
+      const access = await getSessionAccess(env, session);
       return json({
         authenticated: true,
         user: session,
@@ -316,7 +364,7 @@ export default {
     }
 
     if (url.pathname === "/api/meta-accounts/discovered" && request.method === "GET") {
-      const access = await getSessionAccess(session);
+      const access = await getSessionAccess(env, session);
       let accounts = await listDiscoveredMetaAccounts({
         limit: Number(url.searchParams.get("limit") || "500"),
       });
@@ -329,9 +377,9 @@ export default {
     }
 
     if (url.pathname === "/api/tenants" && request.method === "GET") {
-      const access = await getSessionAccess(session);
+      const access = await getSessionAccess(env, session);
       return json({
-        tenants: (await loadAllTenantBundles(access.superAdmin ? undefined : access.tenantIds)).filter(Boolean),
+        tenants: (await loadAllTenantBundles(access.superAdmin ? undefined : access.tenantIds, access.accountTenants)).filter(Boolean),
       });
     }
 
@@ -345,23 +393,39 @@ export default {
         return json({ error: "Tenant name is required" }, { status: 400 });
       }
 
-      const tenant = await createTenant({
-        name: `${body.name}`,
-        slug: body.slug ? `${body.slug}` : undefined,
-        description: body.description ? `${body.description}` : undefined,
-      });
+      let tenant = null;
+      try {
+        tenant = await createAccountTenant(env, session.token, {
+          name: `${body.name}`,
+          slug: body.slug ? `${body.slug}` : undefined,
+          description: body.description ? `${body.description}` : undefined,
+          service: "brain",
+        });
+      } catch {
+        if (shouldUseStrictAccountTenants(env)) {
+          return json({ error: "Account tenant service unavailable" }, { status: 502 });
+        }
+        tenant = await createTenant({
+          name: `${body.name}`,
+          slug: body.slug ? `${body.slug}` : undefined,
+          description: body.description ? `${body.description}` : undefined,
+        });
+      }
 
       return json({
-        tenant: await loadTenantBundle(tenant.id),
+        tenant: await loadTenantBundle(tenant.id, tenant as AccountTenant),
       });
     }
 
     if (segments[0] === "api" && segments[1] === "tenants" && segments[2] && request.method === "GET" && segments.length === 3) {
-      const accessCheck = await requireTenantReadAccess(session, segments[2]);
+      const accessCheck = await requireTenantReadAccess(env, session, segments[2]);
       if (!accessCheck.ok) {
         return accessCheck.response;
       }
-      const tenant = await loadTenantBundle(segments[2]);
+      const tenant = await loadTenantBundle(
+        segments[2],
+        accessCheck.access.accountTenants.find((entry) => entry.id === segments[2])
+      );
       if (!tenant) {
         return json({ error: "Tenant not found" }, { status: 404 });
       }
@@ -379,17 +443,29 @@ export default {
         return json({ error: "Member email is required" }, { status: 400 });
       }
 
-      const member = await addTenantMember(segments[2], {
-        email: `${body.email}`,
-        role: body.role ? `${body.role}` : undefined,
-        status: body.status,
-      });
+      let member = null;
+      try {
+        member = await addAccountTenantMember(env, session.token, segments[2], {
+          email: `${body.email}`,
+          role: body.role ? `${body.role}` : undefined,
+          status: body.status,
+        });
+      } catch {
+        if (shouldUseStrictAccountTenants(env)) {
+          return json({ error: "Account tenant service unavailable" }, { status: 502 });
+        }
+        member = await addTenantMember(segments[2], {
+          email: `${body.email}`,
+          role: body.role ? `${body.role}` : undefined,
+          status: body.status,
+        });
+      }
 
       return json({ member });
     }
 
     if (segments[0] === "api" && segments[1] === "tenants" && segments[2] && segments[3] === "meta-accounts" && request.method === "POST") {
-      const accessCheck = await requireTenantWriteAccess(session, segments[2]);
+      const accessCheck = await requireTenantWriteAccess(env, session, segments[2]);
       if (!accessCheck.ok) {
         return accessCheck.response;
       }
@@ -411,7 +487,7 @@ export default {
     }
 
     if (segments[0] === "api" && segments[1] === "tenants" && segments[2] && segments[3] === "configs" && request.method === "GET") {
-      const accessCheck = await requireTenantReadAccess(session, segments[2]);
+      const accessCheck = await requireTenantReadAccess(env, session, segments[2]);
       if (!accessCheck.ok) {
         return accessCheck.response;
       }
@@ -423,7 +499,7 @@ export default {
     }
 
     if (segments[0] === "api" && segments[1] === "tenants" && segments[2] && segments[3] === "configs" && request.method === "PUT") {
-      const accessCheck = await requireTenantWriteAccess(session, segments[2]);
+      const accessCheck = await requireTenantWriteAccess(env, session, segments[2]);
       if (!accessCheck.ok) {
         return accessCheck.response;
       }
@@ -445,7 +521,7 @@ export default {
     }
 
     if (url.pathname === "/api/monitoring/meta-webhook-events" && request.method === "GET") {
-      const access = await getSessionAccess(session);
+      const access = await getSessionAccess(env, session);
       let events = await listMetaWebhookEvents({
           status: (url.searchParams.get("status") as any) || undefined,
           tenantId: url.searchParams.get("tenantId") || undefined,
@@ -467,7 +543,7 @@ export default {
       if (!event) {
         return json({ error: "Webhook event not found" }, { status: 404 });
       }
-      const access = await getSessionAccess(session);
+      const access = await getSessionAccess(env, session);
       if (!access.superAdmin && (!event.tenantId || !access.tenantIds.includes(event.tenantId))) {
         return json({ error: "Forbidden" }, { status: 403 });
       }
@@ -475,7 +551,7 @@ export default {
     }
 
     if (url.pathname === "/api/monitoring/meta-webhook-events/recover" && request.method === "POST") {
-      return recoverEvents(request);
+      return recoverEvents(request, env);
     }
 
     return json({ error: "Not Found" }, { status: 404 });

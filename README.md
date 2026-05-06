@@ -82,7 +82,8 @@ Notes:
 - `GET /` serves the React frontend from `components/admin/frontend/dist` through Cloudflare `ASSETS`.
 - the frontend verifies the shared Omattic auth session on load and redirects to `auth.omattic.com` automatically when no valid session is present
 - `/api/*` routes accept the shared `session_token` cookie or a bearer JWT and verify it through `auth.omattic.com`
-- `guerrerocarlos@gmail.com` is the fixed super-admin with global read/write access; other users are constrained to their tenant memberships and roles
+- tenant identity, memberships, and roles are resolved from `account.omattic.com` first
+- `ACCOUNT_TENANT_AUTHORITY=fallback` keeps legacy Brain D1 tenant rows as a temporary migration fallback
 
 ### Not Publicly Routed
 
@@ -135,7 +136,8 @@ Key values by subsystem:
 
 Production note:
 - Meta and Slack workspace/runtime routing are intentionally moving away from static env vars and toward KV-backed configuration.
-- Tenant-scoped component config is now managed in D1 and mirrored into `BRAIN_CONFIG` KV by `brain-admin`.
+- Account-owned tenant IDs are used as the stable foreign key for Brain service data.
+- Brain-specific component config remains in Brain D1 and is mirrored into `BRAIN_CONFIG` KV by `brain-admin`.
 - `brain-meta` now reads tenant/account mappings and tenant-scoped Meta config from `BRAIN_CONFIG` before falling back to legacy global env/KV resolution.
 
 ## Deployments and Migrations

@@ -28,7 +28,8 @@ Notes:
 - frontend auto-redirects to `auth.omattic.com` when the shared auth session is missing
 - protects `/api/*` with session-cookie or bearer-token verification against `auth.omattic.com`
 - `guerrerocarlos@gmail.com` is the fixed super-admin; tenant members are limited by role (`viewer` for read-only, `editor`/`admin`/`owner` for write)
-- manages tenants, tenant members, tenant Meta account mappings, and tenant component config
+- resolves canonical tenants and members from `account.omattic.com`
+- manages Brain service Meta account mappings and component config keyed by Account-owned `tenant_id`
 - can inspect and replay failed `meta_webhook_events`
 
 ## `brain`
@@ -54,7 +55,7 @@ Files:
 Notes:
 
 - owns D1-backed response profile storage
-- owns the multi-tenant schema used by `brain-admin`
+- owns Brain service operational tables and legacy tenant fallback tables during the Account migration
 - no public webhook surface
 - exposes `/health`
 

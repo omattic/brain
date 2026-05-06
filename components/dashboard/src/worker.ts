@@ -19,6 +19,7 @@ import {
   type TenantComponentConfig,
   type TenantMetaAccount,
 } from "brain-database";
+import { fetchAccountTenantAccess, type AccountTenant, type AccountTenantAccess } from "./account";
 import { verifyDashboardSession } from "./auth";
 
 declare const Response: any;
@@ -32,6 +33,8 @@ interface Env extends Record<string, unknown> {
   BRAIN_DB: CloudflareD1DatabaseLike;
   BRAIN_CONFIG: CloudflareKVNamespaceLike;
   ASSETS: AssetFetcher;
+  ACCOUNT_SERVICE_ORIGIN?: string;
+  ACCOUNT_TENANT_AUTHORITY?: string;
 }
 
 type Session = {
@@ -41,6 +44,7 @@ type Session = {
   token: string;
 };
 
+type TenantIdentity = AccountTenant | NonNullable<Awaited<ReturnType<typeof getTenantById>>>;
 type TenantBundle = NonNullable<Awaited<ReturnType<typeof loadTenantBundle>>>;
 
 const SUPER_ADMIN_EMAIL = "guerrerocarlos@gmail.com";
@@ -149,13 +153,17 @@ function resolveResponseProfileName(tenant: TenantBundle, requestedProfile?: str
   return normalizeProfileName(tenant.slug || tenant.id);
 }
 
-async function loadTenantBundle(tenantId: string) {
-  const tenant = await getTenantById(tenantId);
+function shouldUseStrictAccountTenants(env: Env) {
+  return `${env.ACCOUNT_TENANT_AUTHORITY || ""}`.trim().toLowerCase() === "strict";
+}
+
+async function loadTenantBundle(tenantId: string, accountTenant?: AccountTenant | null) {
+  const tenant = (accountTenant as TenantIdentity | undefined) || await getTenantById(tenantId);
   if (!tenant) {
     return null;
   }
 
-  const [members, metaAccounts, configs] = await Promise.all([
+  const [localMembers, metaAccounts, configs] = await Promise.all([
     listTenantMembers(tenantId),
     listTenantMetaAccounts(tenantId),
     listTenantComponentConfigs(tenantId),
@@ -163,14 +171,15 @@ async function loadTenantBundle(tenantId: string) {
 
   return {
     ...tenant,
-    members,
+    members: "members" in tenant && Array.isArray(tenant.members) ? tenant.members : localMembers,
     metaAccounts,
     configs,
   };
 }
 
-async function loadTenantBundles(tenantIds: string[]) {
-  return Promise.all(tenantIds.map((tenantId) => loadTenantBundle(tenantId)));
+async function loadTenantBundles(tenantIds: string[], accountTenants: AccountTenant[] = []) {
+  const byId = new Map(accountTenants.map((tenant) => [tenant.id, tenant]));
+  return Promise.all(tenantIds.map((tenantId) => loadTenantBundle(tenantId, byId.get(tenantId))));
 }
 
 async function syncTenantConfigCache(env: Env, tenantId: string, component: string) {
@@ -216,7 +225,7 @@ async function requireSession(request: Request) {
   };
 }
 
-async function getSessionAccess(session: Session) {
+async function getLegacySessionAccess(session: Session) {
   const superAdmin = isSuperAdmin(session);
   if (superAdmin) {
     const tenants = await listTenants();
@@ -230,6 +239,7 @@ async function getSessionAccess(session: Session) {
         status: "active",
         canWrite: true,
       })),
+      accountTenants: [],
     };
   }
 
@@ -246,15 +256,39 @@ async function getSessionAccess(session: Session) {
       status: membership.status,
       canWrite: canWriteTenantRole(membership.role),
     })),
+    accountTenants: [],
   };
+}
+
+async function getSessionAccess(env: Env, session: Session) {
+  if (session.token) {
+    try {
+      const accountAccess = await fetchAccountTenantAccess(env, session.token);
+      if (accountAccess.tenantIds.length || shouldUseStrictAccountTenants(env)) {
+        return {
+          superAdmin: accountAccess.isSuperAdmin,
+          memberships: [],
+          tenantIds: accountAccess.tenantIds,
+          tenantAccess: accountAccess.tenantAccess,
+          accountTenants: accountAccess.tenants,
+        };
+      }
+    } catch (error) {
+      if (shouldUseStrictAccountTenants(env)) {
+        throw error;
+      }
+    }
+  }
+
+  return getLegacySessionAccess(session);
 }
 
 function hasDashboardAccess(access: Awaited<ReturnType<typeof getSessionAccess>>) {
   return access.superAdmin || access.tenantIds.length > 0;
 }
 
-async function requireTenantReadAccess(session: Session, tenantId: string) {
-  const access = await getSessionAccess(session);
+async function requireTenantReadAccess(env: Env, session: Session, tenantId: string) {
+  const access = await getSessionAccess(env, session);
   if (access.tenantIds.includes(tenantId)) {
     return { ok: true as const, access };
   }
@@ -265,8 +299,8 @@ async function requireTenantReadAccess(session: Session, tenantId: string) {
   };
 }
 
-async function requireTenantWriteAccess(session: Session, tenantId: string) {
-  const readAccess = await requireTenantReadAccess(session, tenantId);
+async function requireTenantWriteAccess(env: Env, session: Session, tenantId: string) {
+  const readAccess = await requireTenantReadAccess(env, session, tenantId);
   if (!readAccess.ok) {
     return readAccess;
   }
@@ -276,7 +310,8 @@ async function requireTenantWriteAccess(session: Session, tenantId: string) {
   }
 
   const membership = readAccess.access.memberships.find((entry) => entry.tenantId === tenantId) || null;
-  if (membership && canWriteTenantRole(membership.role)) {
+  const tenantAccess = readAccess.access.tenantAccess.find((entry) => entry.tenantId === tenantId) || null;
+  if ((membership && canWriteTenantRole(membership.role)) || tenantAccess?.canWrite) {
     return readAccess;
   }
 
@@ -286,8 +321,8 @@ async function requireTenantWriteAccess(session: Session, tenantId: string) {
   };
 }
 
-async function getTenantResponseProfile(tenantId: string, requestedProfile?: string) {
-  const tenant = await loadTenantBundle(tenantId);
+async function getTenantResponseProfile(tenantId: string, requestedProfile?: string, accountTenant?: AccountTenant | null) {
+  const tenant = await loadTenantBundle(tenantId, accountTenant);
   if (!tenant) {
     return null;
   }
@@ -329,7 +364,7 @@ export default {
     const session = authResult.session!;
 
     if (url.pathname === "/api/session" && request.method === "GET") {
-      const access = await getSessionAccess(session);
+      const access = await getSessionAccess(env, session);
       if (!hasDashboardAccess(access)) {
         return json({ error: "Forbidden: no active Brain tenant access" }, { status: 403 });
       }
@@ -344,23 +379,26 @@ export default {
     }
 
     if (url.pathname === "/api/tenants" && request.method === "GET") {
-      const access = await getSessionAccess(session);
+      const access = await getSessionAccess(env, session);
       if (!hasDashboardAccess(access)) {
         return json({ error: "Forbidden: no active Brain tenant access" }, { status: 403 });
       }
 
       return json({
-        tenants: (await loadTenantBundles(access.tenantIds)).filter(Boolean),
+        tenants: (await loadTenantBundles(access.tenantIds, access.accountTenants)).filter(Boolean),
       });
     }
 
     if (segments[0] === "api" && segments[1] === "tenants" && segments[2] && request.method === "GET" && segments.length === 3) {
-      const accessCheck = await requireTenantReadAccess(session, segments[2]);
+      const accessCheck = await requireTenantReadAccess(env, session, segments[2]);
       if (!accessCheck.ok) {
         return accessCheck.response;
       }
 
-      const tenant = await loadTenantBundle(segments[2]);
+      const tenant = await loadTenantBundle(
+        segments[2],
+        accessCheck.access.accountTenants.find((entry) => entry.id === segments[2])
+      );
       if (!tenant) {
         return json({ error: "Tenant not found" }, { status: 404 });
       }
@@ -375,14 +413,15 @@ export default {
       segments[3] === "instagram-response-profile" &&
       request.method === "GET"
     ) {
-      const accessCheck = await requireTenantReadAccess(session, segments[2]);
+      const accessCheck = await requireTenantReadAccess(env, session, segments[2]);
       if (!accessCheck.ok) {
         return accessCheck.response;
       }
 
       const responseProfile = await getTenantResponseProfile(
         segments[2],
-        url.searchParams.get("profile") || undefined
+        url.searchParams.get("profile") || undefined,
+        accessCheck.access.accountTenants.find((entry) => entry.id === segments[2])
       );
       if (!responseProfile) {
         return json({ error: "Tenant not found" }, { status: 404 });
@@ -402,7 +441,7 @@ export default {
       segments[4] === "rules" &&
       request.method === "DELETE"
     ) {
-      const accessCheck = await requireTenantWriteAccess(session, segments[2]);
+      const accessCheck = await requireTenantWriteAccess(env, session, segments[2]);
       if (!accessCheck.ok) {
         return accessCheck.response;
       }
@@ -410,7 +449,8 @@ export default {
       const body = await parseJson(request);
       const current = await getTenantResponseProfile(
         segments[2],
-        typeof body?.profileName === "string" ? body.profileName : undefined
+        typeof body?.profileName === "string" ? body.profileName : undefined,
+        accessCheck.access.accountTenants.find((entry) => entry.id === segments[2])
       );
       if (!current) {
         return json({ error: "Tenant not found" }, { status: 404 });
@@ -450,7 +490,7 @@ export default {
       segments[4] === "rules" &&
       request.method === "PUT"
     ) {
-      const accessCheck = await requireTenantWriteAccess(session, segments[2]);
+      const accessCheck = await requireTenantWriteAccess(env, session, segments[2]);
       if (!accessCheck.ok) {
         return accessCheck.response;
       }
@@ -458,7 +498,8 @@ export default {
       const body = await parseJson(request);
       const current = await getTenantResponseProfile(
         segments[2],
-        typeof body?.profileName === "string" ? body.profileName : undefined
+        typeof body?.profileName === "string" ? body.profileName : undefined,
+        accessCheck.access.accountTenants.find((entry) => entry.id === segments[2])
       );
       if (!current) {
         return json({ error: "Tenant not found" }, { status: 404 });
@@ -495,7 +536,7 @@ export default {
       segments.length === 4 &&
       request.method === "PUT"
     ) {
-      const accessCheck = await requireTenantWriteAccess(session, segments[2]);
+      const accessCheck = await requireTenantWriteAccess(env, session, segments[2]);
       if (!accessCheck.ok) {
         return accessCheck.response;
       }
@@ -503,7 +544,8 @@ export default {
       const body = await parseJson(request);
       const current = await getTenantResponseProfile(
         segments[2],
-        typeof body?.profileName === "string" ? body.profileName : undefined
+        typeof body?.profileName === "string" ? body.profileName : undefined,
+        accessCheck.access.accountTenants.find((entry) => entry.id === segments[2])
       );
       if (!current) {
         return json({ error: "Tenant not found" }, { status: 404 });
@@ -527,7 +569,7 @@ export default {
     }
 
     if (segments[0] === "api" && segments[1] === "tenants" && segments[2] && segments[3] === "configs" && request.method === "GET") {
-      const accessCheck = await requireTenantReadAccess(session, segments[2]);
+      const accessCheck = await requireTenantReadAccess(env, session, segments[2]);
       if (!accessCheck.ok) {
         return accessCheck.response;
       }
@@ -540,7 +582,7 @@ export default {
     }
 
     if (segments[0] === "api" && segments[1] === "tenants" && segments[2] && segments[3] === "configs" && request.method === "PUT") {
-      const accessCheck = await requireTenantWriteAccess(session, segments[2]);
+      const accessCheck = await requireTenantWriteAccess(env, session, segments[2]);
       if (!accessCheck.ok) {
         return accessCheck.response;
       }
