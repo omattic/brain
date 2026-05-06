@@ -21,7 +21,7 @@ pnpm --dir components/dashboard exec tsc -p tsconfig.json --noEmit
 ## API
 
 - `GET /api/session` verifies the `session_token` cookie or bearer token with auth.omattic.com.
-- `GET /api/tenants` returns tenant bundles scoped to the authenticated member. Tenant access is resolved from `account.omattic.com` first, with legacy Brain D1 fallback while `ACCOUNT_TENANT_AUTHORITY=fallback`.
+- `GET /api/tenants` returns tenant bundles scoped to the authenticated member. Tenant access is resolved through `account.omattic.com` when `ACCOUNT_TENANT_AUTHORITY=strict`.
 - `GET /api/tenants/:tenantId/instagram-response-profile` returns the D1-backed Instagram response profile for a tenant.
 - `PUT /api/tenants/:tenantId/instagram-response-profile` replaces the profile rules and syncs `meta:INSTAGRAM_RESPONSE_PROFILE` into the tenant config KV cache.
 

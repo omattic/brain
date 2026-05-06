@@ -28,6 +28,14 @@ Optional/additional bindings by component:
 ### Admin
 
 - `ADMIN_AUTH_VERIFY_URL`
+- `ACCOUNT_SERVICE_ORIGIN`
+- `ACCOUNT_TENANT_AUTHORITY`
+
+### Dashboard
+
+- `DASHBOARD_AUTH_VERIFY_URL`
+- `ACCOUNT_SERVICE_ORIGIN`
+- `ACCOUNT_TENANT_AUTHORITY`
 
 ## Environment Variables
 

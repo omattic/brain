@@ -83,7 +83,7 @@ Notes:
 - the frontend verifies the shared Omattic auth session on load and redirects to `auth.omattic.com` automatically when no valid session is present
 - `/api/*` routes accept the shared `session_token` cookie or a bearer JWT and verify it through `auth.omattic.com`
 - tenant identity, memberships, and roles are resolved from `account.omattic.com` first
-- `ACCOUNT_TENANT_AUTHORITY=fallback` keeps legacy Brain D1 tenant rows as a temporary migration fallback
+- `ACCOUNT_TENANT_AUTHORITY=strict` makes `account.omattic.com` the runtime tenant authority
 
 ### Not Publicly Routed
 

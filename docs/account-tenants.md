@@ -11,18 +11,16 @@ A tenant is a client/workspace/customer organization using Omattic services. A u
 3. Account returns the tenant IDs, memberships, roles, and tenant bundles the user can access.
 4. Brain loads Brain-specific data from `BRAIN_DB` using the Account-owned `tenant_id`.
 
-## Current Migration Mode
+## Runtime Mode
 
 Both `brain-admin` and `brain-dashboard` support:
 
 - `ACCOUNT_SERVICE_ORIGIN=https://account.omattic.com`
-- `ACCOUNT_TENANT_AUTHORITY=fallback`
+- `ACCOUNT_TENANT_AUTHORITY=strict`
 
-`fallback` means Account is queried first, but legacy Brain D1 tenant rows are still used if Account returns no tenants or is unavailable. After production tenant data is fully migrated into Account, switch this to:
+`strict` means Account is the runtime tenant authority. Brain rejects tenant-scoped API calls if Account is unavailable or the user is not an active Account tenant member.
 
-```text
-ACCOUNT_TENANT_AUTHORITY=strict
-```
+`fallback` still exists for local development and emergency rollback. It queries Account first, then falls back to legacy Brain D1 tenant rows if Account returns no tenants or is unavailable.
 
 ## Ownership Boundary
 
