@@ -180,6 +180,9 @@ describe("dashboard worker", () => {
           if (`${cookieHeader}`.includes("editor-token") || `${authHeader}`.includes("editor-token")) {
             email = "editor@omattic.com";
           }
+          if (`${cookieHeader}`.includes("no-access-token") || `${authHeader}`.includes("no-access-token")) {
+            email = "outsider@gmail.com";
+          }
           return Response.json({
             authenticated: true,
             user: {
@@ -206,6 +209,23 @@ describe("dashboard worker", () => {
     const response = await worker.fetch(new Request("https://brain.omattic.com/api/session"), env);
 
     expect(response.status).toBe(401);
+  });
+
+  it("rejects authenticated users without active tenant access", async () => {
+    const response = await worker.fetch(
+      new Request("https://brain.omattic.com/api/session", {
+        headers: {
+          cookie: "session_token=no-access-token",
+        },
+      }),
+      env
+    );
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({
+      error: "Forbidden: no active Brain tenant access",
+    });
+    expect(databaseMocks.listTenantMembershipsByEmail).toHaveBeenCalledWith("outsider@gmail.com");
   });
 
   it("returns the active tenant bundle list for tenant members", async () => {

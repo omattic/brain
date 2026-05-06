@@ -89,6 +89,15 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       return nextSession;
     }
 
+    if (response.status === 403) {
+      setSession(null);
+      setTenantAccess([]);
+      setTenants([]);
+      setSelectedTenantId(null);
+      storeTenantId(null);
+      throw new Error((payload as any)?.error || "Your account does not have active access to a Brain tenant.");
+    }
+
     window.location.replace(getLoginUrl(redirectUri));
     return null;
   }, [redirectUri]);

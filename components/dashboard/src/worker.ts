@@ -249,6 +249,10 @@ async function getSessionAccess(session: Session) {
   };
 }
 
+function hasDashboardAccess(access: Awaited<ReturnType<typeof getSessionAccess>>) {
+  return access.superAdmin || access.tenantIds.length > 0;
+}
+
 async function requireTenantReadAccess(session: Session, tenantId: string) {
   const access = await getSessionAccess(session);
   if (access.tenantIds.includes(tenantId)) {
@@ -326,6 +330,10 @@ export default {
 
     if (url.pathname === "/api/session" && request.method === "GET") {
       const access = await getSessionAccess(session);
+      if (!hasDashboardAccess(access)) {
+        return json({ error: "Forbidden: no active Brain tenant access" }, { status: 403 });
+      }
+
       return json({
         authenticated: true,
         user: session,
@@ -337,6 +345,10 @@ export default {
 
     if (url.pathname === "/api/tenants" && request.method === "GET") {
       const access = await getSessionAccess(session);
+      if (!hasDashboardAccess(access)) {
+        return json({ error: "Forbidden: no active Brain tenant access" }, { status: 403 });
+      }
+
       return json({
         tenants: (await loadTenantBundles(access.tenantIds)).filter(Boolean),
       });
