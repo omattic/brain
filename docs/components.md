@@ -4,7 +4,7 @@
 
 | Component | Worker Name | Public Route | Primary Role | Persistent Resources |
 | --- | --- | --- | --- | --- |
-| `admin` | `brain-admin` | yes | Brain tenant config UI and API | D1, KV |
+| `admin` | `brain-admin` | yes | Brain account-resource config UI and API | D1, KV |
 | `brain` | `brain-brain` | none | core brain logic | R2 |
 | `database` | `brain-database` | health only | D1 access and seeding | R2, D1 |
 | `datetime` | `brain-datetime` | yes | datetime tools + Slack-style ingress shell | R2 |
@@ -27,9 +27,9 @@ Notes:
 - serves the frontend through Cloudflare `ASSETS`
 - frontend auto-redirects to `auth.omattic.com` when the shared auth session is missing
 - protects `/api/*` with session-cookie or bearer-token verification against `auth.omattic.com`
-- `guerrerocarlos@gmail.com` is the fixed super-admin; tenant members are limited by Account-owned role (`viewer` for read-only, `editor`/`admin`/`owner` for Brain config writes)
-- resolves canonical tenants and members from `account.omattic.com`
-- does not create tenants or tenant members; use `https://account.omattic.com/admin/tenants` for account management
+- `guerrerocarlos@gmail.com` is the fixed super-admin; account members are limited by Account-owned role (`viewer` for read-only, `editor`/`admin`/`owner` for Brain config writes)
+- resolves canonical accounts and members from `account.omattic.com`
+- does not create accounts or account members; use `https://account.omattic.com/admin/tenants` for current account management
 - manages Brain service Meta account mappings and component config keyed by Account-owned `tenant_id`
 - can inspect and replay failed `meta_webhook_events`
 
@@ -56,7 +56,7 @@ Files:
 Notes:
 
 - owns D1-backed response profile storage
-- owns Brain service operational tables and legacy tenant fallback tables during the Account migration
+- owns Brain service operational tables and legacy account fallback tables during the Account migration
 - no public webhook surface
 - exposes `/health`
 
@@ -86,7 +86,7 @@ Notes:
 - accepts Meta webhook verification and signed event POSTs
 - resolves Slack destinations from KV first, env second
 - resolves Instagram access tokens from KV first, env second
-- resolves tenant/account mappings and tenant-scoped Meta config from `BRAIN_CONFIG`
+- resolves account mappings and account-scoped Meta config from `BRAIN_CONFIG`
 
 ## `slack`
 

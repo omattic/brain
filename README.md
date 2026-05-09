@@ -15,7 +15,7 @@ The repo is organized as deployable components under `components/` and shared ru
 ## Monorepo Layout
 
 - `components/brain`: core brain component
-- `components/admin`: tenant admin surface and monitoring UI
+- `components/admin`: Brain account-resource admin surface and monitoring UI
 - `components/database`: D1-backed data access and seed logic
 - `components/datetime`: datetime-related component and Slack-facing worker
 - `components/meta`: Meta / Instagram / WhatsApp ingress and outbound bridge
@@ -82,9 +82,9 @@ Notes:
 - `GET /` serves the React frontend from `components/admin/frontend/dist` through Cloudflare `ASSETS`.
 - the frontend verifies the shared Omattic auth session on load and redirects to `auth.omattic.com` automatically when no valid session is present
 - `/api/*` routes accept the shared `session_token` cookie or a bearer JWT and verify it through `auth.omattic.com`
-- tenant identity, memberships, roles, and service links are managed in `account.omattic.com/admin/tenants`
-- Brain Admin resolves tenants from `account.omattic.com` but only edits Brain-specific Meta mappings, runtime config, and monitoring state
-- `ACCOUNT_TENANT_AUTHORITY=strict` makes `account.omattic.com` the runtime tenant authority
+- account identity, memberships, roles, and entitlements are managed by `account.omattic.com`
+- Brain Admin resolves accounts from `account.omattic.com` but only edits Brain-specific Meta mappings, runtime config, and monitoring state
+- `ACCOUNT_TENANT_AUTHORITY=strict` makes `account.omattic.com` the runtime account authority while preserving the current `tenant_id` implementation key
 
 ### Not Publicly Routed
 
@@ -103,7 +103,7 @@ Those Workers do not currently have public custom-domain routes configured.
 
 Important KV namespaces currently in use:
 
-- `BRAIN_CONFIG`: tenant-scoped component config cache populated by `brain-admin`
+- `BRAIN_CONFIG`: account-scoped Brain runtime config cache populated by `brain-admin`
 - `META_TOKENS`: Meta / Instagram access token storage
 - `SLACK_CONFIG`: Slack workspace routing and bot-token lookup
 
@@ -137,9 +137,9 @@ Key values by subsystem:
 
 Production note:
 - Meta and Slack workspace/runtime routing are intentionally moving away from static env vars and toward KV-backed configuration.
-- Account-owned tenant IDs are used as the stable foreign key for Brain service data.
+- Account-owned `tenant_id` values are used as the stable foreign key for Brain service data.
 - Brain-specific component config remains in Brain D1 and is mirrored into `BRAIN_CONFIG` KV by `brain-admin`.
-- `brain-meta` now reads tenant/account mappings and tenant-scoped Meta config from `BRAIN_CONFIG` before falling back to legacy global env/KV resolution.
+- `brain-meta` now reads account mappings and account-scoped Meta config from `BRAIN_CONFIG` before falling back to legacy global env/KV resolution.
 
 ## Deployments and Migrations
 

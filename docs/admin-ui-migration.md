@@ -21,7 +21,7 @@ Use a single deployed admin surface:
   - `/api/*`
   - `/health`
   - auth/session verification
-  - tenant permission enforcement
+  - account permission enforcement
   - replay/recovery actions
 - `brain-admin` frontend continues to be served from `ASSETS`
 - `brain-admin-ui` contributes:
@@ -74,17 +74,17 @@ Current `brain-admin` endpoints already available:
 
 - `Overview`
   - session state from `GET /api/session`
-  - tenant counts from `GET /api/tenants`
+  - account counts from `GET /api/tenants`
   - failed event counts from `GET /api/monitoring/meta-webhook-events`
 
-- `Tenants`
-  - tenant list from `GET /api/tenants`
-  - tenant and member management links to `https://account.omattic.com/admin/tenants`
+- `Accounts`
+  - account list from `GET /api/tenants`
+  - account and member management links to `https://account.omattic.com/admin/tenants`
   - Meta account registration from `POST /api/tenants/:tenantId/meta-accounts`
 
-- `Tenant Details`
-  - tenant bundle from `GET /api/tenants/:tenantId`
-  - tenant config list from included bundle or `GET /api/tenants/:tenantId/configs`
+- `Account Details`
+  - account bundle from `GET /api/tenants/:tenantId`
+  - account config list from included bundle or `GET /api/tenants/:tenantId/configs`
   - config upsert from `PUT /api/tenants/:tenantId/configs`
 
 - `Monitoring / Logs`
@@ -100,14 +100,14 @@ Current `brain-admin` endpoints already available:
     - `instagram_response_profile_comments`
     - `instagram_response_profile_dms`
   - missing API endpoints today:
-    - list rules by profile or tenant
+    - list rules by profile or account
     - create rule
     - update rule
     - activate/deactivate rule
     - delete rule
 
 - `Integrations`
-  - tenant Meta accounts exist already
+  - account Meta accounts exist already
   - Slack/Twilio/other integrations do not yet have a normalized admin API surface
 
 - `Security`
@@ -125,8 +125,8 @@ Current `brain-admin` endpoints already available:
 Use only pages that are already real:
 
 - Overview
-- Tenants
-- Tenant Details
+- Accounts
+- Account Details
 - Monitoring
 
 Optionally include non-clickable or hidden placeholders for:
@@ -156,7 +156,7 @@ Bearer-token paste flows should remain optional, not primary.
 1. Keep `components/admin` as the only deployed admin service.
 2. Move the route-based React shell from `brain-admin-ui` into `components/admin/frontend`.
 3. Replace mock data usage with a typed client for the existing admin API.
-4. Ship only Overview, Tenants, Tenant Details, and Monitoring in the first cut.
+4. Ship only Overview, Accounts, Account Details, and Monitoring in the first cut.
 5. Add backend endpoints for rule management.
 6. Wire `Brain Rules` to D1-backed Instagram response profile data.
 7. Add integration pages only after there is a stable backend shape.
@@ -166,7 +166,7 @@ Bearer-token paste flows should remain optional, not primary.
 Priority order:
 
 1. Brain rules API backed by response profile tables.
-2. Tenant detail update endpoints if we want editable tenant metadata.
+2. Account detail update endpoints if we want editable account metadata.
 3. Integration inventory endpoints beyond Meta accounts.
 4. Security/audit endpoints if those pages should be real.
 
@@ -176,8 +176,8 @@ Minimum checks for migration:
 
 - unauthenticated frontend redirects to auth
 - authenticated session loads app data correctly
-- non-super-admin users only see their own tenants
-- super-admin-only actions stay blocked for normal tenant users
+- non-super-admin users only see their own accounts
+- super-admin-only actions stay blocked for normal account users
 - failed event inspect/recover still works from the new UI
 - frontend build is still served correctly through Worker `ASSETS`
 
