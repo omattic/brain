@@ -2,6 +2,8 @@
 
 Cloudflare-based monorepo for the Omattic/R3JS "brain" system.
 
+Central Omattic context lives in `/home/gnu/omattic`. Start with `/home/gnu/omattic/README.md` and use `/home/gnu/omattic/MASTER.md` for shared vocabulary. This README only documents local Brain behavior.
+
 The repo is organized as deployable components under `components/` and shared runtime code under `packages/brain-sdk/`. Components communicate primarily through Cloudflare Queues, persist shared state in R2 and D1, and expose selected public webhook surfaces through Cloudflare Workers.
 
 ## What This System Does
