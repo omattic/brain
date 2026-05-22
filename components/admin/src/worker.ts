@@ -36,6 +36,10 @@ interface Env extends Record<string, unknown> {
   ASSETS: AssetFetcher;
   ACCOUNT_SERVICE_ORIGIN?: string;
   ACCOUNT_TENANT_AUTHORITY?: string;
+  ENVIRONMENT?: string;
+  GIT_BRANCH?: string;
+  GIT_COMMIT_HASH?: string;
+  DEPLOYED_AT?: string;
 }
 
 const SUPER_ADMIN_EMAIL = "guerrerocarlos@gmail.com";
@@ -325,7 +329,14 @@ export default {
     const segments = url.pathname.split("/").filter(Boolean);
 
     if (url.pathname === "/health") {
-      return new Response("OK");
+      return json({
+        service: "brain-admin",
+        environment: `${env.ENVIRONMENT || "production"}`,
+        status: "ok",
+        branch: `${env.GIT_BRANCH || process.env.BRANCH || "unknown"}`,
+        commitHash: `${env.GIT_COMMIT_HASH || "unknown"}`,
+        deployedAt: `${env.DEPLOYED_AT || "unknown"}`,
+      });
     }
 
     if (!url.pathname.startsWith("/api/")) {

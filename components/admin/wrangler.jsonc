@@ -27,6 +27,10 @@
   ],
   "vars": {
     "BRANCH": "main",
+    "ENVIRONMENT": "production",
+    "GIT_BRANCH": "unknown",
+    "GIT_COMMIT_HASH": "unknown",
+    "DEPLOYED_AT": "unknown",
     "ADMIN_AUTH_VERIFY_URL": "https://auth.omattic.com/verify",
     "ACCOUNT_SERVICE_ORIGIN": "https://account.omattic.com",
     "ACCOUNT_TENANT_AUTHORITY": "strict"
