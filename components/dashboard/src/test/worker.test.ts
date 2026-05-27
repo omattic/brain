@@ -291,6 +291,41 @@ describe("dashboard worker", () => {
     expect(databaseMocks.listTenantMembershipsByEmail).not.toHaveBeenCalled();
   });
 
+  it("redacts secret tenant configs in tenant-facing responses", async () => {
+    databaseMocks.listTenantComponentConfigs.mockResolvedValueOnce([
+      {
+        id: "cfg-secret",
+        tenantId: "tenant-1",
+        component: "meta",
+        key: "INSTAGRAM_ACCESS_TOKEN",
+        value: JSON.stringify({ tokenKey: "instagram/access-token/inglesconliza", token: "secret" }),
+        parsedValue: {
+          tokenKey: "instagram/access-token/inglesconliza",
+          token: "secret",
+        },
+        isSecret: true,
+        isJson: true,
+        updatedAt: "2026-04-29T00:00:00.000Z",
+      },
+    ] as any);
+
+    const response = await worker.fetch(
+      new Request("https://brain.omattic.com/api/tenants/tenant-1", {
+        headers: {
+          cookie: "session_token=viewer-token",
+        },
+      }),
+      env
+    );
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.tenant.configs[0].value).toBe("<redacted>");
+    expect(payload.tenant.configs[0].parsedValue).toEqual({
+      tokenKey: "instagram/access-token/inglesconliza",
+    });
+  });
+
   it("falls back to legacy tenants for super-admins while Account is not backfilled", async () => {
     const response = await worker.fetch(
       new Request("https://brain.omattic.com/api/tenants", {
@@ -469,5 +504,29 @@ describe("dashboard worker", () => {
       "tenant-config/tenant-1/meta",
       expect.stringContaining("INSTAGRAM_RESPONSE_PROFILE")
     );
+  });
+
+  it("blocks Instagram token config writes from the tenant dashboard", async () => {
+    const response = await worker.fetch(
+      new Request("https://brain.omattic.com/api/tenants/tenant-1/configs", {
+        method: "PUT",
+        headers: {
+          cookie: "session_token=editor-token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          component: "meta",
+          key: "INSTAGRAM_ACCESS_TOKEN",
+          value: {
+            tokenKey: "instagram/access-token/inglesconliza",
+          },
+          isSecret: true,
+        }),
+      }),
+      env
+    );
+
+    expect(response.status).toBe(403);
+    expect(databaseMocks.upsertTenantComponentConfig).not.toHaveBeenCalled();
   });
 });

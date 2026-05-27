@@ -107,6 +107,8 @@ Behavior:
 - the frontend auto-redirects to `auth.omattic.com/auth?redirect_uri=...` when the shared session is missing
 - every `/api/*` route requires the shared auth session cookie or a bearer JWT and verifies it against `auth.omattic.com`
 - the monitoring routes can list and replay failed `meta_webhook_events`
+- `PUT /api/tenants/:tenantId/meta-accounts/:accountId/access-token` validates and rotates Instagram tokens into `META_TOKENS`
+- access-token responses return token status and token keys only; they never return token values
 
 ## No Public Webhook Route
 

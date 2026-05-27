@@ -53,18 +53,21 @@ Bound in:
 - `database`
 - `support`
 - `admin`
+- `dashboard`
 
 ### `BRAIN_CONFIG`
 
 Bound in:
 
 - `admin`
+- `dashboard`
 - `meta`
 
 ### `META_TOKENS`
 
 Bound in:
 
+- `admin`
 - `meta`
 
 ### `SLACK_CONFIG`

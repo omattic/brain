@@ -67,7 +67,10 @@ Optional per-workspace local/dev fallback:
 
 Production note:
 
-- Instagram access tokens should live in `META_TOKENS` KV where possible
+- Instagram access tokens should live in `META_TOKENS` KV.
+- Rotate production Instagram tokens from `brain-admin.omattic.com`; the admin API validates the token before writing it.
+- D1 should store only a pointer such as `{ "tokenKey": "instagram/access-token/inglesconliza" }` in `meta:INSTAGRAM_ACCESS_TOKEN`.
+- The generic config API rejects inline `meta:INSTAGRAM_ACCESS_TOKEN` values; token values must go through the Meta account token rotation flow.
 
 ### Twilio
 
@@ -90,6 +93,14 @@ Key examples:
 
 - `instagram/access-token/default`
 - `instagram/access-token/inglesconliza`
+
+Writers:
+
+- `brain-admin` can rotate account-scoped Instagram tokens for tenant owners/admins and super-admins
+
+Readers:
+
+- `brain-meta` reads the token key configured in `BRAIN_CONFIG`, then loads the actual token from `META_TOKENS`
 
 ### `SLACK_CONFIG`
 
@@ -120,7 +131,7 @@ Key examples:
 
 Current runtime consumers:
 
-- `brain-admin` writes account config and account mappings
+- `brain-admin` writes account config, account mappings, and token pointers
 - `brain-meta` reads account mappings and account-scoped Meta config
 
 ## D1

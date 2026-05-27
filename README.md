@@ -142,6 +142,7 @@ Production note:
 - Account-owned `tenant_id` values are used as the stable foreign key for Brain service data.
 - Brain-specific component config remains in Brain D1 and is mirrored into `BRAIN_CONFIG` KV by `brain-admin`.
 - `brain-meta` now reads account mappings and account-scoped Meta config from `BRAIN_CONFIG` before falling back to legacy global env/KV resolution.
+- Instagram access tokens are rotated from `brain-admin`, validated against Meta before save, stored in `META_TOKENS`, and referenced from D1/BRAIN_CONFIG by token key only.
 
 ## Deployments and Migrations
 

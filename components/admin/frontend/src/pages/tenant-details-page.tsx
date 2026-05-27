@@ -1,9 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, CreditCard, ExternalLink, MousePointer2, Save, Settings2 } from "lucide-react";
+import { ArrowLeft, CreditCard, ExternalLink, KeyRound, Loader2, MousePointer2, Save, Settings2 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
-import { addTenantMetaAccount, getDiscoveredMetaAccounts, getTenant, putTenantConfig } from "@/lib/api";
+import {
+  addTenantMetaAccount,
+  getDiscoveredMetaAccounts,
+  getMetaAccountTokenStatus,
+  getTenant,
+  putTenantConfig,
+  rotateMetaAccountToken,
+} from "@/lib/api";
 import { useAdmin } from "@/lib/admin-context";
-import type { DiscoveredMetaAccount, Tenant } from "@/lib/types";
+import type { DiscoveredMetaAccount, MetaAccountTokenStatus, Tenant, TenantMetaAccount } from "@/lib/types";
 import { formatDateTime } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +35,11 @@ export function TenantDetailsPage() {
   const [configKey, setConfigKey] = useState("INSTAGRAM_RESPONSE_PROFILE");
   const [configValue, setConfigValue] = useState("\"inglesconliza\"");
   const [configSecret, setConfigSecret] = useState(false);
+  const [tokenStatuses, setTokenStatuses] = useState<Record<string, MetaAccountTokenStatus>>({});
+  const [tokenInputs, setTokenInputs] = useState<Record<string, string>>({});
+  const [tokenKeys, setTokenKeys] = useState<Record<string, string>>({});
+  const [loadingTokenStatus, setLoadingTokenStatus] = useState(false);
+  const [rotatingAccountId, setRotatingAccountId] = useState<string | null>(null);
 
   const canWriteTenant = useMemo(() => {
     if (session?.isSuperAdmin) return true;
@@ -35,6 +47,44 @@ export function TenantDetailsPage() {
     if (!membership) return false;
     return ["owner", "admin", "editor"].includes(membership.role.toLowerCase());
   }, [session, tenant]);
+
+  const canRotateTokens = useMemo(() => {
+    if (session?.isSuperAdmin) return true;
+    const membership = tenant?.members.find((entry) => entry.email === session?.email && entry.status === "active");
+    if (membership && ["owner", "admin"].includes(membership.role.toLowerCase())) return true;
+    const access = session?.tenantAccess?.find((entry) => entry.tenantId === tenant?.id && entry.status === "active");
+    return Boolean(access && ["owner", "admin"].includes(access.role.toLowerCase()));
+  }, [session, tenant]);
+
+  async function loadTokenStatuses(nextTenant: Tenant) {
+    if (!tenantId || !nextTenant.metaAccounts.length) {
+      setTokenStatuses({});
+      return;
+    }
+
+    setLoadingTokenStatus(true);
+    try {
+      const entries = await Promise.all(
+        nextTenant.metaAccounts.map(async (account) => {
+          const { response, payload } = await getMetaAccountTokenStatus(tenantId, account.accountId);
+          return [account.accountId, response.ok ? payload : null] as const;
+        })
+      );
+
+      const nextStatuses: Record<string, MetaAccountTokenStatus> = {};
+      const nextKeys: Record<string, string> = {};
+      for (const [accountId, status] of entries) {
+        if (status) {
+          nextStatuses[accountId] = status;
+          nextKeys[accountId] = status.tokenKey;
+        }
+      }
+      setTokenStatuses(nextStatuses);
+      setTokenKeys((current) => ({ ...nextKeys, ...current }));
+    } finally {
+      setLoadingTokenStatus(false);
+    }
+  }
 
   async function loadTenant() {
     if (!tenantId) return;
@@ -46,8 +96,12 @@ export function TenantDetailsPage() {
       setLoading(false);
       return;
     }
-    setTenant(payload?.tenant || null);
+    const nextTenant = payload?.tenant || null;
+    setTenant(nextTenant);
     setLoading(false);
+    if (nextTenant) {
+      await loadTokenStatuses(nextTenant);
+    }
   }
 
   async function loadDiscoveredAccounts() {
@@ -111,6 +165,36 @@ export function TenantDetailsPage() {
       return;
     }
     setSuccess(`Saved ${configComponent}:${configKey}`);
+    await Promise.all([loadTenant(), refreshWorkspace()]);
+  }
+
+  async function onRotateToken(account: TenantMetaAccount) {
+    if (!tenantId) return;
+    const token = tokenInputs[account.accountId]?.trim() || "";
+    if (!token) {
+      setError("Paste a Meta access token before rotating it.");
+      return;
+    }
+
+    setSuccess(null);
+    setError(null);
+    setRotatingAccountId(account.accountId);
+    const { response, payload } = await rotateMetaAccountToken(tenantId, account.accountId, {
+      token,
+      tokenKey: tokenKeys[account.accountId],
+    });
+    setRotatingAccountId(null);
+
+    if (!response.ok) {
+      const detail = (payload as any)?.detail ? `: ${(payload as any).detail}` : "";
+      setError(`${(payload as any)?.error || "Unable to rotate token"}${detail}`);
+      return;
+    }
+
+    setTokenInputs((current) => ({ ...current, [account.accountId]: "" }));
+    setTokenStatuses((current) => ({ ...current, [account.accountId]: payload }));
+    setTokenKeys((current) => ({ ...current, [account.accountId]: payload.tokenKey }));
+    setSuccess(`Rotated token for ${account.username || account.accountId}`);
     await Promise.all([loadTenant(), refreshWorkspace()]);
   }
 
@@ -244,8 +328,8 @@ export function TenantDetailsPage() {
                   </div>
                   <div className="space-y-3">
                     {tenant.metaAccounts.length ? tenant.metaAccounts.map((account) => (
-                      <div key={account.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                        <div className="flex items-center justify-between gap-3">
+                      <div key={account.id} className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <div>
                             <div className="text-sm font-medium text-slate-950">{account.username || account.accountId}</div>
                             <div className="mt-1 text-xs text-slate-500">{account.provider} · {account.accountId}</div>
@@ -254,6 +338,62 @@ export function TenantDetailsPage() {
                             <Badge>{account.status}</Badge>
                             {account.label ? <Badge className="border-[#e2e8f0] bg-slate-100 text-slate-700">{account.label}</Badge> : null}
                           </div>
+                        </div>
+                        <div className="rounded-xl border border-slate-200 bg-white px-3 py-3">
+                          <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex items-center gap-2">
+                              <KeyRound className="h-4 w-4 text-[#635bff]" />
+                              <div>
+                                <div className="text-sm font-semibold text-slate-950">Meta access token</div>
+                                <div className="text-xs text-slate-500">
+                                  {loadingTokenStatus && !tokenStatuses[account.accountId]
+                                    ? "Checking token status..."
+                                    : tokenStatuses[account.accountId]?.configured
+                                      ? `Configured at ${tokenStatuses[account.accountId]?.tokenKey}`
+                                      : "No token found in META_TOKENS for this account."}
+                                </div>
+                              </div>
+                            </div>
+                            <Badge className={tokenStatuses[account.accountId]?.configured ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}>
+                              {tokenStatuses[account.accountId]?.configured ? "Configured" : "Missing"}
+                            </Badge>
+                          </div>
+                          {canRotateTokens ? (
+                            <div className="space-y-3">
+                              <Input
+                                value={tokenKeys[account.accountId] || ""}
+                                placeholder="instagram/access-token/inglesconliza"
+                                onChange={(event) =>
+                                  setTokenKeys((current) => ({ ...current, [account.accountId]: event.target.value }))
+                                }
+                              />
+                              <Input
+                                type="password"
+                                autoComplete="off"
+                                value={tokenInputs[account.accountId] || ""}
+                                placeholder="Paste new Meta access token"
+                                onChange={(event) =>
+                                  setTokenInputs((current) => ({ ...current, [account.accountId]: event.target.value }))
+                                }
+                              />
+                              <Button
+                                className="w-full gap-2"
+                                disabled={rotatingAccountId === account.accountId}
+                                onClick={() => void onRotateToken(account)}
+                              >
+                                {rotatingAccountId === account.accountId ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <KeyRound className="h-4 w-4" />
+                                )}
+                                Validate and rotate token
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-3 text-sm leading-6 text-slate-500">
+                              Token rotation requires tenant owner/admin access.
+                            </div>
+                          )}
                         </div>
                       </div>
                     )) : (

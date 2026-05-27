@@ -31,6 +31,8 @@ Notes:
 - resolves canonical accounts and members from `account.omattic.com`
 - does not create accounts or account members; use `https://account.omattic.com/admin/tenants` for current account management
 - manages Brain service Meta account mappings and component config keyed by Account-owned `tenant_id`
+- rotates account-scoped Instagram access tokens into `META_TOKENS`; tenant owners/admins and the fixed super-admin can rotate tokens
+- redacts secret config values in API responses while preserving safe token-key pointers
 - can inspect and replay failed `meta_webhook_events`
 
 ## `brain`
@@ -85,7 +87,7 @@ Notes:
 
 - accepts Meta webhook verification and signed event POSTs
 - resolves Slack destinations from KV first, env second
-- resolves Instagram access tokens from KV first, env second
+- resolves Instagram access tokens from tenant config pointers, then `META_TOKENS` KV, then env fallback
 - resolves account mappings and account-scoped Meta config from `BRAIN_CONFIG`
 
 ## `slack`

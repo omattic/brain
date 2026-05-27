@@ -52,6 +52,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         ...payload.user,
         isSuperAdmin: Boolean(payload.isSuperAdmin),
         tenantIds: payload.tenantIds || [],
+        tenantAccess: payload.tenantAccess || [],
       };
       setSession(nextSession);
       return nextSession;

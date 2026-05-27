@@ -47,6 +47,10 @@
     {
       "binding": "BRAIN_CONFIG",
       "id": "90939e8e10f14dbcae541481245ea258"
+    },
+    {
+      "binding": "META_TOKENS",
+      "id": "63b75363bbef45bea09a75cb7143e0cc"
     }
   ],
   "queues": {

@@ -180,6 +180,10 @@ describe("admin worker", () => {
     put: vi.fn(async () => undefined),
     get: vi.fn(async () => null),
   };
+  const metaTokensMock = {
+    put: vi.fn(async () => undefined),
+    get: vi.fn(async () => null),
+  };
   const assetsMock = {
     fetch: vi.fn(async () => new Response("<html>frontend</html>", { headers: { "content-type": "text/html" } })),
   };
@@ -200,6 +204,9 @@ describe("admin worker", () => {
           if (`${cookieHeader}`.includes("editor-token") || `${authHeader}`.includes("editor-token")) {
             email = "editor@omattic.com";
           }
+          if (`${cookieHeader}`.includes("admin-token") || `${authHeader}`.includes("admin-token")) {
+            email = "admin@omattic.com";
+          }
           return Response.json({
             authenticated: true,
             user: {
@@ -212,8 +219,15 @@ describe("admin worker", () => {
 
         if (`${input}`.startsWith("https://account.omattic.com/api/v1/tenants")) {
           const authHeader = init?.headers?.authorization || "";
-          const role = `${authHeader}`.includes("editor-token") ? "editor" : "viewer";
-          const isTenantUser = `${authHeader}`.includes("viewer-token") || `${authHeader}`.includes("editor-token");
+          const role = `${authHeader}`.includes("admin-token")
+            ? "admin"
+            : `${authHeader}`.includes("editor-token")
+              ? "editor"
+              : "viewer";
+          const isTenantUser =
+            `${authHeader}`.includes("viewer-token") ||
+            `${authHeader}`.includes("editor-token") ||
+            `${authHeader}`.includes("admin-token");
           if (`${authHeader}`.includes("empty-account-token")) {
             return Response.json({
               isSuperAdmin: true,
@@ -247,6 +261,24 @@ describe("admin worker", () => {
               },
             ],
           });
+        }
+
+        if (`${input}`.startsWith("https://graph.instagram.com/v20.0/me")) {
+          const url = new URL(`${input}`);
+          if (url.searchParams.get("access_token") === "valid-token") {
+            return Response.json({
+              user_id: "17841401707784079",
+              username: "inglesconliza",
+            });
+          }
+          return Response.json(
+            {
+              error: {
+                message: "Invalid OAuth access token.",
+              },
+            },
+            { status: 400 }
+          );
         }
 
         throw new Error(`Unexpected fetch target: ${input}`);
@@ -411,6 +443,209 @@ describe("admin worker", () => {
     expect(response.status).toBe(200);
     expect(databaseMocks.upsertTenantComponentConfig).toHaveBeenCalled();
     expect(kvMock.put).toHaveBeenCalled();
+  });
+
+  it("rejects inline Instagram token values in generic runtime config", async () => {
+    const response = await worker.fetch(
+      new Request("https://brain-admin.omattic.com/api/tenants/tenant-1/configs", {
+        method: "PUT",
+        headers: {
+          authorization: "Bearer token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          component: "meta",
+          key: "INSTAGRAM_ACCESS_TOKEN",
+          value: "inline-token",
+          isSecret: true,
+        }),
+      }),
+      {
+        BRAIN_DB: {} as any,
+        BRAIN_CONFIG: kvMock as any,
+        META_QUEUE: {} as any,
+        ASSETS: assetsMock as any,
+      }
+    );
+
+    expect(response.status).toBe(400);
+    expect(databaseMocks.upsertTenantComponentConfig).not.toHaveBeenCalled();
+  });
+
+  it("redacts secret tenant configs in API responses", async () => {
+    databaseMocks.listTenantComponentConfigs.mockResolvedValueOnce([
+      {
+        id: "cfg-secret",
+        tenantId: "tenant-1",
+        component: "meta",
+        key: "INSTAGRAM_ACCESS_TOKEN",
+        value: JSON.stringify({ tokenKey: "instagram/access-token/inglesconliza", token: "secret" }),
+        parsedValue: {
+          tokenKey: "instagram/access-token/inglesconliza",
+          token: "secret",
+        },
+        isSecret: true,
+        isJson: true,
+        updatedAt: "2026-04-29T00:00:00.000Z",
+      },
+    ]);
+
+    const response = await worker.fetch(
+      new Request("https://brain-admin.omattic.com/api/tenants/tenant-1", {
+        headers: {
+          authorization: "Bearer token",
+        },
+      }),
+      {
+        BRAIN_DB: {} as any,
+        BRAIN_CONFIG: kvMock as any,
+        META_QUEUE: {} as any,
+        ASSETS: assetsMock as any,
+      }
+    );
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.tenant.configs[0].value).toBe("<redacted>");
+    expect(payload.tenant.configs[0].parsedValue).toEqual({
+      tokenKey: "instagram/access-token/inglesconliza",
+    });
+  });
+
+  it("rotates a tenant Meta token after validating it", async () => {
+    databaseMocks.listTenantMetaAccounts.mockResolvedValueOnce([
+      {
+        id: "account-1",
+        tenantId: "tenant-1",
+        provider: "instagram",
+        accountId: "17841401707784079",
+        username: "inglesconliza",
+        label: null,
+        status: "active",
+      },
+    ]);
+    databaseMocks.listTenantComponentConfigs
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          id: "cfg-1",
+          tenantId: "tenant-1",
+          component: "meta",
+          key: "INSTAGRAM_ACCESS_TOKEN",
+          value: JSON.stringify({ tokenKey: "instagram/access-token/inglesconliza" }),
+          parsedValue: {
+            tokenKey: "instagram/access-token/inglesconliza",
+          },
+          isSecret: true,
+          isJson: true,
+          updatedAt: "2026-04-29T00:00:00.000Z",
+        },
+      ]);
+
+    const response = await worker.fetch(
+      new Request("https://brain-admin.omattic.com/api/tenants/tenant-1/meta-accounts/17841401707784079/access-token", {
+        method: "PUT",
+        headers: {
+          authorization: "Bearer admin-token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          token: "valid-token",
+          tokenKey: "instagram/access-token/inglesconliza",
+        }),
+      }),
+      {
+        BRAIN_DB: {} as any,
+        BRAIN_CONFIG: kvMock as any,
+        META_TOKENS: metaTokensMock as any,
+        META_QUEUE: {} as any,
+        ASSETS: assetsMock as any,
+      }
+    );
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.configured).toBe(true);
+    expect(payload.validation.username).toBe("inglesconliza");
+    expect(metaTokensMock.put).toHaveBeenCalledWith("instagram/access-token/inglesconliza", "valid-token");
+    expect(databaseMocks.upsertTenantComponentConfig).toHaveBeenCalledWith("tenant-1", {
+      component: "meta",
+      key: "INSTAGRAM_ACCESS_TOKEN",
+      value: {
+        tokenKey: "instagram/access-token/inglesconliza",
+      },
+      isSecret: true,
+      updatedByEmail: "admin@omattic.com",
+    });
+    expect(kvMock.put).toHaveBeenCalledWith(
+      "tenant-config/tenant-1/meta/INSTAGRAM_ACCESS_TOKEN",
+      expect.stringContaining("instagram/access-token/inglesconliza")
+    );
+  });
+
+  it("does not rotate a Meta token for tenant editors", async () => {
+    const response = await worker.fetch(
+      new Request("https://brain-admin.omattic.com/api/tenants/tenant-1/meta-accounts/17841401707784079/access-token", {
+        method: "PUT",
+        headers: {
+          authorization: "Bearer editor-token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          token: "valid-token",
+          tokenKey: "instagram/access-token/inglesconliza",
+        }),
+      }),
+      {
+        BRAIN_DB: {} as any,
+        BRAIN_CONFIG: kvMock as any,
+        META_TOKENS: metaTokensMock as any,
+        META_QUEUE: {} as any,
+        ASSETS: assetsMock as any,
+      }
+    );
+
+    expect(response.status).toBe(403);
+    expect(metaTokensMock.put).not.toHaveBeenCalled();
+  });
+
+  it("does not write an invalid Meta token", async () => {
+    databaseMocks.listTenantMetaAccounts.mockResolvedValueOnce([
+      {
+        id: "account-1",
+        tenantId: "tenant-1",
+        provider: "instagram",
+        accountId: "17841401707784079",
+        username: "inglesconliza",
+        label: null,
+        status: "active",
+      },
+    ]);
+
+    const response = await worker.fetch(
+      new Request("https://brain-admin.omattic.com/api/tenants/tenant-1/meta-accounts/17841401707784079/access-token", {
+        method: "PUT",
+        headers: {
+          authorization: "Bearer admin-token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          token: "bad-token",
+          tokenKey: "instagram/access-token/inglesconliza",
+        }),
+      }),
+      {
+        BRAIN_DB: {} as any,
+        BRAIN_CONFIG: kvMock as any,
+        META_TOKENS: metaTokensMock as any,
+        META_QUEUE: {} as any,
+        ASSETS: assetsMock as any,
+      }
+    );
+
+    expect(response.status).toBe(400);
+    expect(metaTokensMock.put).not.toHaveBeenCalled();
+    expect(databaseMocks.upsertTenantComponentConfig).not.toHaveBeenCalled();
   });
 
   it("does not expose tenant creation from Brain Admin", async () => {

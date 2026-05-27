@@ -1,4 +1,4 @@
-import type { AdminSession, DiscoveredMetaAccount, MetaWebhookEvent, Tenant } from "@/lib/types";
+import type { AdminSession, DiscoveredMetaAccount, MetaAccountTokenStatus, MetaWebhookEvent, Tenant, TenantAccess } from "@/lib/types";
 
 const AUTH_ORIGIN = "https://auth.omattic.com";
 
@@ -25,7 +25,13 @@ export function getLogoutUrl(redirectUri: string) {
 }
 
 export async function getSession() {
-  return request<{ authenticated: boolean; user: AdminSession; isSuperAdmin?: boolean; tenantIds?: string[] }>("/api/session");
+  return request<{
+    authenticated: boolean;
+    user: AdminSession;
+    isSuperAdmin?: boolean;
+    tenantIds?: string[];
+    tenantAccess?: TenantAccess[];
+  }>("/api/session");
 }
 
 export async function getTenants() {
@@ -33,7 +39,7 @@ export async function getTenants() {
 }
 
 export async function getTenant(tenantId: string) {
-  return request<{ tenant: Tenant }>(`/api/tenants/${tenantId}`);
+  return request<{ tenant: Tenant }>(`/api/tenants/${encodeURIComponent(tenantId)}`);
 }
 
 export async function getDiscoveredMetaAccounts(input: { limit?: number } = {}) {
@@ -47,17 +53,37 @@ export async function addTenantMetaAccount(
   tenantId: string,
   input: { provider: string; accountId: string; username?: string; label?: string }
 ) {
-  return request(`/api/tenants/${tenantId}/meta-accounts`, {
+  return request(`/api/tenants/${encodeURIComponent(tenantId)}/meta-accounts`, {
     method: "POST",
     body: JSON.stringify(input),
   });
+}
+
+export async function getMetaAccountTokenStatus(tenantId: string, accountId: string) {
+  return request<MetaAccountTokenStatus>(
+    `/api/tenants/${encodeURIComponent(tenantId)}/meta-accounts/${encodeURIComponent(accountId)}/access-token`
+  );
+}
+
+export async function rotateMetaAccountToken(
+  tenantId: string,
+  accountId: string,
+  input: { token: string; tokenKey?: string }
+) {
+  return request<MetaAccountTokenStatus>(
+    `/api/tenants/${encodeURIComponent(tenantId)}/meta-accounts/${encodeURIComponent(accountId)}/access-token`,
+    {
+      method: "PUT",
+      body: JSON.stringify(input),
+    }
+  );
 }
 
 export async function putTenantConfig(
   tenantId: string,
   input: { component: string; key: string; value: unknown; isSecret?: boolean }
 ) {
-  return request(`/api/tenants/${tenantId}/configs`, {
+  return request(`/api/tenants/${encodeURIComponent(tenantId)}/configs`, {
     method: "PUT",
     body: JSON.stringify(input),
   });

@@ -4,6 +4,14 @@ export type AdminSession = {
   domain?: string;
   isSuperAdmin?: boolean;
   tenantIds?: string[];
+  tenantAccess?: TenantAccess[];
+};
+
+export type TenantAccess = {
+  tenantId: string;
+  role: string;
+  status: string;
+  canWrite: boolean;
 };
 
 export type TenantMember = {
@@ -78,4 +86,16 @@ export type DiscoveredMetaAccount = {
   eventCount: number;
   firstSeenAt: string;
   lastSeenAt: string;
+};
+
+export type MetaAccountTokenStatus = {
+  accountId: string;
+  username?: string | null;
+  tokenKey: string;
+  configured: boolean;
+  configUpdatedAt?: string | null;
+  validation?: {
+    userId?: string | null;
+    username?: string | null;
+  };
 };

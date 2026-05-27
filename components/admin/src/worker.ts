@@ -32,6 +32,7 @@ type AssetFetcher = {
 interface Env extends Record<string, unknown> {
   BRAIN_DB: CloudflareD1DatabaseLike;
   BRAIN_CONFIG: CloudflareKVNamespaceLike;
+  META_TOKENS?: CloudflareKVNamespaceLike;
   META_QUEUE: CloudflareQueueLike;
   ASSETS: AssetFetcher;
   ACCOUNT_SERVICE_ORIGIN?: string;
@@ -44,6 +45,10 @@ interface Env extends Record<string, unknown> {
 
 const SUPER_ADMIN_EMAIL = "guerrerocarlos@gmail.com";
 const TENANT_WRITE_ROLES = new Set(["owner", "admin", "editor"]);
+const TENANT_TOKEN_ROLES = new Set(["owner", "admin"]);
+const INSTAGRAM_TOKEN_CONFIG_KEY = "INSTAGRAM_ACCESS_TOKEN";
+const INSTAGRAM_TOKEN_KEY_PREFIX = "instagram/access-token/";
+const REDACTED_SECRET_VALUE = "<redacted>";
 
 function configureCloudflareRuntime(env: Env) {
   if (typeof process !== "undefined") {
@@ -66,6 +71,7 @@ function configureCloudflareRuntime(env: Env) {
       },
       kv: {
         brainConfig: env.BRAIN_CONFIG,
+        metaTokens: env.META_TOKENS,
       },
       queues: {
         meta: env.META_QUEUE,
@@ -189,6 +195,141 @@ function canWriteTenantRole(role: string | undefined | null) {
   return TENANT_WRITE_ROLES.has(`${role || ""}`.trim().toLowerCase());
 }
 
+function canRotateTenantTokenRole(role: string | undefined | null) {
+  return TENANT_TOKEN_ROLES.has(`${role || ""}`.trim().toLowerCase());
+}
+
+function redactSecretParsedValue(value: unknown) {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const tokenKey = (value as { tokenKey?: unknown }).tokenKey;
+    if (typeof tokenKey === "string" && tokenKey.trim()) {
+      return { tokenKey: tokenKey.trim() };
+    }
+  }
+
+  return REDACTED_SECRET_VALUE;
+}
+
+function redactConfigForResponse<T extends { isSecret?: boolean; value?: unknown; parsedValue?: unknown }>(config: T): T {
+  if (!config.isSecret) {
+    return config;
+  }
+
+  return {
+    ...config,
+    value: REDACTED_SECRET_VALUE,
+    parsedValue: redactSecretParsedValue(config.parsedValue),
+  };
+}
+
+function redactTenantForResponse<T extends { configs?: Array<{ isSecret?: boolean; value?: unknown; parsedValue?: unknown }> }>(
+  tenant: T
+): T {
+  return {
+    ...tenant,
+    configs: tenant.configs?.map((config) => redactConfigForResponse(config)) || [],
+  };
+}
+
+function sanitizeTokenKeySegment(value: string) {
+  return value
+    .trim()
+    .replace(/^@/, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function buildDefaultInstagramTokenKey(account: { accountId: string; username?: string | null; label?: string | null }) {
+  const segment =
+    sanitizeTokenKeySegment(account.username || "") ||
+    sanitizeTokenKeySegment(account.label || "") ||
+    sanitizeTokenKeySegment(account.accountId);
+  return `${INSTAGRAM_TOKEN_KEY_PREFIX}${segment}`;
+}
+
+function normalizeInstagramTokenKey(input: unknown, account: { accountId: string; username?: string | null; label?: string | null }) {
+  if (typeof input !== "string" || !input.trim()) {
+    return buildDefaultInstagramTokenKey(account);
+  }
+
+  const tokenKey = input.trim();
+  if (!tokenKey.startsWith(INSTAGRAM_TOKEN_KEY_PREFIX)) {
+    throw new Error(`Token key must start with ${INSTAGRAM_TOKEN_KEY_PREFIX}`);
+  }
+
+  return tokenKey;
+}
+
+function normalizeConfigComponent(value: unknown) {
+  return `${value || ""}`.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-");
+}
+
+function normalizeConfigKey(value: unknown) {
+  return `${value || ""}`.trim().toUpperCase().replace(/[^A-Z0-9_]+/g, "_");
+}
+
+function isInstagramTokenConfig(component: unknown, key: unknown) {
+  return normalizeConfigComponent(component) === "meta" && normalizeConfigKey(key) === INSTAGRAM_TOKEN_CONFIG_KEY;
+}
+
+function normalizeTokenPointerConfigValue(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const tokenKey = (value as { tokenKey?: unknown }).tokenKey;
+  if (typeof tokenKey !== "string" || !tokenKey.trim().startsWith(INSTAGRAM_TOKEN_KEY_PREFIX)) {
+    return null;
+  }
+
+  return { tokenKey: tokenKey.trim() };
+}
+
+async function validateInstagramAccessToken(token: string) {
+  const url = new URL("https://graph.instagram.com/v20.0/me");
+  url.searchParams.set("fields", "user_id,username");
+  url.searchParams.set("access_token", token);
+
+  const response = await fetch(url.toString(), { method: "GET" });
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const errorMessage =
+      typeof payload?.error?.message === "string"
+        ? payload.error.message
+        : `Meta token validation failed with status ${response.status}`;
+    throw new Error(errorMessage);
+  }
+
+  return {
+    userId: typeof payload?.user_id === "string" ? payload.user_id : null,
+    username: typeof payload?.username === "string" ? payload.username : null,
+  };
+}
+
+function findTenantMetaAccount(tenant: NonNullable<Awaited<ReturnType<typeof loadTenantBundle>>>, accountId: string) {
+  return tenant.metaAccounts.find((account) => account.accountId === accountId) || null;
+}
+
+function getInstagramTokenConfig(configs: Array<{ component: string; key: string; parsedValue?: unknown; updatedAt?: string }>) {
+  return configs.find((config) => config.component === "meta" && config.key === INSTAGRAM_TOKEN_CONFIG_KEY) || null;
+}
+
+function extractTokenKeyFromConfig(config: { parsedValue?: unknown } | null) {
+  const value = config?.parsedValue;
+  if (typeof value === "string" && value.trim().startsWith(INSTAGRAM_TOKEN_KEY_PREFIX)) {
+    return value.trim();
+  }
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const tokenKey = (value as { tokenKey?: unknown }).tokenKey;
+    if (typeof tokenKey === "string" && tokenKey.trim()) {
+      return tokenKey.trim();
+    }
+  }
+  return null;
+}
+
 async function getLegacySessionAccess(session: { email: string }) {
   const superAdmin = isSuperAdmin(session);
   const memberships = superAdmin ? [] : await listTenantMembershipsByEmail(session.email);
@@ -270,6 +411,28 @@ async function requireTenantWriteAccess(env: Env, session: { email: string; toke
   };
 }
 
+async function requireTenantTokenAccess(env: Env, session: { email: string; token?: string }, tenantId: string) {
+  const readAccess = await requireTenantReadAccess(env, session, tenantId);
+  if (!readAccess.ok) {
+    return readAccess;
+  }
+
+  if (readAccess.access.superAdmin) {
+    return readAccess;
+  }
+
+  const membership = readAccess.access.memberships.find((entry) => entry.tenantId === tenantId) || null;
+  const tenantAccess = readAccess.access.tenantAccess.find((entry) => entry.tenantId === tenantId) || null;
+  if (canRotateTenantTokenRole(membership?.role) || canRotateTenantTokenRole(tenantAccess?.role)) {
+    return readAccess;
+  }
+
+  return {
+    ok: false as const,
+    response: json({ error: "Forbidden" }, { status: 403 }),
+  };
+}
+
 async function recoverEvents(request: Request, env: Env) {
   const { session, response } = await requireSession(request);
   if (response) return response;
@@ -321,6 +484,118 @@ async function recoverEvents(request: Request, env: Env) {
   });
 }
 
+async function getMetaAccountTokenStatus(request: Request, env: Env, tenantId: string, accountId: string) {
+  const { session, response } = await requireSession(request);
+  if (response) return response;
+
+  const accessCheck = await requireTenantReadAccess(env, session, tenantId);
+  if (!accessCheck.ok) {
+    return accessCheck.response;
+  }
+
+  const tenant = await loadTenantBundle(
+    tenantId,
+    accessCheck.access.accountTenants.find((entry) => entry.id === tenantId)
+  );
+  if (!tenant) {
+    return json({ error: "Tenant not found" }, { status: 404 });
+  }
+
+  const account = findTenantMetaAccount(tenant, accountId);
+  if (!account) {
+    return json({ error: "Meta account not found for tenant" }, { status: 404 });
+  }
+
+  const tokenConfig = getInstagramTokenConfig(tenant.configs);
+  const tokenKey = extractTokenKeyFromConfig(tokenConfig) || buildDefaultInstagramTokenKey(account);
+  if (!env.META_TOKENS) {
+    return json({ error: "META_TOKENS binding is not configured" }, { status: 503 });
+  }
+
+  const storedToken = await env.META_TOKENS.get(tokenKey);
+
+  return json({
+    accountId: account.accountId,
+    username: account.username || null,
+    tokenKey,
+    configured: Boolean(storedToken?.trim()),
+    configUpdatedAt: tokenConfig?.updatedAt || null,
+  });
+}
+
+async function rotateMetaAccountToken(request: Request, env: Env, tenantId: string, accountId: string) {
+  const { session, response } = await requireSession(request);
+  if (response) return response;
+
+  const accessCheck = await requireTenantTokenAccess(env, session, tenantId);
+  if (!accessCheck.ok) {
+    return accessCheck.response;
+  }
+
+  const tenant = await loadTenantBundle(
+    tenantId,
+    accessCheck.access.accountTenants.find((entry) => entry.id === tenantId)
+  );
+  if (!tenant) {
+    return json({ error: "Tenant not found" }, { status: 404 });
+  }
+
+  const account = findTenantMetaAccount(tenant, accountId);
+  if (!account) {
+    return json({ error: "Meta account not found for tenant" }, { status: 404 });
+  }
+
+  const body = await parseJson(request);
+  if (!env.META_TOKENS) {
+    return json({ error: "META_TOKENS binding is not configured" }, { status: 503 });
+  }
+
+  const token = typeof body?.token === "string" ? body.token.trim() : "";
+  if (!token) {
+    return json({ error: "Token is required" }, { status: 400 });
+  }
+
+  let tokenKey: string;
+  try {
+    tokenKey = normalizeInstagramTokenKey(body?.tokenKey, account);
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
+  }
+
+  let validation: Awaited<ReturnType<typeof validateInstagramAccessToken>>;
+  try {
+    validation = await validateInstagramAccessToken(token);
+  } catch (error) {
+    return json(
+      {
+        error: "Meta token validation failed",
+        detail: error instanceof Error ? error.message : String(error),
+      },
+      { status: 400 }
+    );
+  }
+
+  await env.META_TOKENS.put(tokenKey, token);
+
+  const config = await upsertTenantComponentConfig(tenantId, {
+    component: "meta",
+    key: INSTAGRAM_TOKEN_CONFIG_KEY,
+    value: { tokenKey },
+    isSecret: true,
+    updatedByEmail: session.email,
+  });
+  await syncTenantConfigCache(env, tenantId, config.component);
+
+  return json({
+    accountId: account.accountId,
+    username: account.username || validation.username || null,
+    tokenKey,
+    configured: true,
+    validation,
+    config: redactConfigForResponse(config),
+  });
+}
+
 export default {
   async fetch(request: Request, env: Env) {
     configureCloudflareRuntime(env);
@@ -356,6 +631,7 @@ export default {
         user: session,
         isSuperAdmin: access.superAdmin,
         tenantIds: access.tenantIds,
+        tenantAccess: access.tenantAccess,
       });
     }
 
@@ -375,7 +651,9 @@ export default {
     if (url.pathname === "/api/tenants" && request.method === "GET") {
       const access = await getSessionAccess(env, session);
       return json({
-        tenants: (await loadAllTenantBundles(access.superAdmin ? undefined : access.tenantIds, access.accountTenants)).filter(Boolean),
+        tenants: (await loadAllTenantBundles(access.superAdmin ? undefined : access.tenantIds, access.accountTenants))
+          .filter(Boolean)
+          .map((tenant) => redactTenantForResponse(tenant!)),
       });
     }
 
@@ -392,7 +670,7 @@ export default {
         return json({ error: "Tenant not found" }, { status: 404 });
       }
 
-      return json({ tenant });
+      return json({ tenant: redactTenantForResponse(tenant) });
     }
 
     if (segments[0] === "api" && segments[1] === "tenants" && segments[2] && segments[3] === "meta-accounts" && request.method === "POST") {
@@ -423,9 +701,9 @@ export default {
         return accessCheck.response;
       }
       return json({
-        configs: await listTenantComponentConfigs(segments[2], {
+        configs: (await listTenantComponentConfigs(segments[2], {
           component: url.searchParams.get("component") || undefined,
-        }),
+        })).map((config) => redactConfigForResponse(config)),
       });
     }
 
@@ -439,16 +717,62 @@ export default {
         return json({ error: "Component and key are required" }, { status: 400 });
       }
 
+      let configValue = body.value;
+      let isSecret = Boolean(body.isSecret);
+      if (isInstagramTokenConfig(body.component, body.key)) {
+        const tokenAccessCheck = await requireTenantTokenAccess(env, session, segments[2]);
+        if (!tokenAccessCheck.ok) {
+          return tokenAccessCheck.response;
+        }
+
+        const tokenPointer = normalizeTokenPointerConfigValue(body.value);
+        if (!tokenPointer) {
+          return json(
+            {
+              error: "INSTAGRAM_ACCESS_TOKEN config must be a tokenKey pointer. Rotate token values from the Meta account token form.",
+            },
+            { status: 400 }
+          );
+        }
+
+        configValue = tokenPointer;
+        isSecret = true;
+      }
+
       const config = await upsertTenantComponentConfig(segments[2], {
         component: `${body.component}`,
         key: `${body.key}`,
-        value: body.value,
-        isSecret: Boolean(body.isSecret),
+        value: configValue,
+        isSecret,
         updatedByEmail: session.email,
       });
 
       await syncTenantConfigCache(env, segments[2], config.component);
-      return json({ config });
+      return json({ config: redactConfigForResponse(config) });
+    }
+
+    if (
+      segments[0] === "api" &&
+      segments[1] === "tenants" &&
+      segments[2] &&
+      segments[3] === "meta-accounts" &&
+      segments[4] &&
+      segments[5] === "access-token" &&
+      request.method === "GET"
+    ) {
+      return getMetaAccountTokenStatus(request, env, segments[2], segments[4]);
+    }
+
+    if (
+      segments[0] === "api" &&
+      segments[1] === "tenants" &&
+      segments[2] &&
+      segments[3] === "meta-accounts" &&
+      segments[4] &&
+      segments[5] === "access-token" &&
+      request.method === "PUT"
+    ) {
+      return rotateMetaAccountToken(request, env, segments[2], segments[4]);
     }
 
     if (url.pathname === "/api/monitoring/meta-webhook-events" && request.method === "GET") {

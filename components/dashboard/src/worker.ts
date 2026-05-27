@@ -49,6 +49,8 @@ type TenantBundle = NonNullable<Awaited<ReturnType<typeof loadTenantBundle>>>;
 
 const SUPER_ADMIN_EMAIL = "guerrerocarlos@gmail.com";
 const TENANT_WRITE_ROLES = new Set(["owner", "admin", "editor"]);
+const REDACTED_SECRET_VALUE = "<redacted>";
+const INSTAGRAM_TOKEN_CONFIG_KEY = "INSTAGRAM_ACCESS_TOKEN";
 
 function configureCloudflareRuntime(env: Env) {
   if (typeof process !== "undefined") {
@@ -90,6 +92,50 @@ function isSuperAdmin(session: Pick<Session, "email">) {
 
 function canWriteTenantRole(role: string | undefined | null) {
   return TENANT_WRITE_ROLES.has(`${role || ""}`.trim().toLowerCase());
+}
+
+function normalizeConfigComponent(value: unknown) {
+  return `${value || ""}`.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-");
+}
+
+function normalizeConfigKey(value: unknown) {
+  return `${value || ""}`.trim().toUpperCase().replace(/[^A-Z0-9_]+/g, "_");
+}
+
+function isInstagramTokenConfig(component: unknown, key: unknown) {
+  return normalizeConfigComponent(component) === "meta" && normalizeConfigKey(key) === INSTAGRAM_TOKEN_CONFIG_KEY;
+}
+
+function redactSecretParsedValue(value: unknown) {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const tokenKey = (value as { tokenKey?: unknown }).tokenKey;
+    if (typeof tokenKey === "string" && tokenKey.trim()) {
+      return { tokenKey: tokenKey.trim() };
+    }
+  }
+
+  return REDACTED_SECRET_VALUE;
+}
+
+function redactConfigForResponse<T extends { isSecret?: boolean; value?: unknown; parsedValue?: unknown }>(config: T): T {
+  if (!config.isSecret) {
+    return config;
+  }
+
+  return {
+    ...config,
+    value: REDACTED_SECRET_VALUE,
+    parsedValue: redactSecretParsedValue(config.parsedValue),
+  };
+}
+
+function redactTenantForResponse<T extends { configs?: Array<{ isSecret?: boolean; value?: unknown; parsedValue?: unknown }> }>(
+  tenant: T
+): T {
+  return {
+    ...tenant,
+    configs: tenant.configs?.map((config) => redactConfigForResponse(config)) || [],
+  };
 }
 
 function normalizeProfileName(value: string) {
@@ -385,7 +431,9 @@ export default {
       }
 
       return json({
-        tenants: (await loadTenantBundles(access.tenantIds, access.accountTenants)).filter(Boolean),
+        tenants: (await loadTenantBundles(access.tenantIds, access.accountTenants))
+          .filter(Boolean)
+          .map((tenant) => redactTenantForResponse(tenant!)),
       });
     }
 
@@ -403,7 +451,7 @@ export default {
         return json({ error: "Tenant not found" }, { status: 404 });
       }
 
-      return json({ tenant });
+      return json({ tenant: redactTenantForResponse(tenant) });
     }
 
     if (
@@ -575,9 +623,9 @@ export default {
       }
 
       return json({
-        configs: await listTenantComponentConfigs(segments[2], {
+        configs: (await listTenantComponentConfigs(segments[2], {
           component: url.searchParams.get("component") || undefined,
-        }),
+        })).map((config) => redactConfigForResponse(config)),
       });
     }
 
@@ -592,6 +640,10 @@ export default {
         return json({ error: "Component and key are required" }, { status: 400 });
       }
 
+      if (isInstagramTokenConfig(body.component, body.key)) {
+        return json({ error: "Instagram access tokens must be managed from Brain Admin." }, { status: 403 });
+      }
+
       const config = await upsertTenantComponentConfig(segments[2], {
         component: `${body.component}`,
         key: `${body.key}`,
@@ -601,7 +653,7 @@ export default {
       });
 
       await syncTenantConfigCache(env, segments[2], config.component);
-      return json({ config });
+      return json({ config: redactConfigForResponse(config) });
     }
 
     return json({ error: "Not Found" }, { status: 404 });
