@@ -142,6 +142,21 @@ function ruleMatchesSearch(rule: DraftRule, query: string) {
   return searchText.includes(query);
 }
 
+function findDuplicateRule(rule: DraftRule, rules: DraftRule[]) {
+  if (rule.persistedHashtag) return null;
+
+  const normalizedHashtag = normalizeHashtag(rule.hashtag);
+  if (!normalizedHashtag) return null;
+
+  return (
+    rules.find(
+      (candidate) =>
+        candidate.localId !== rule.localId &&
+        normalizeHashtag(candidate.persistedHashtag || candidate.hashtag) === normalizedHashtag
+    ) || null
+  );
+}
+
 function VariantEditor({
   label,
   values,
@@ -284,6 +299,15 @@ export function IgHashtagsPage() {
 
       window.scrollTo({ top: 0, behavior: "smooth" });
     });
+  }
+
+  function showExistingRule(draftRule: DraftRule, existingRule: DraftRule) {
+    clearSearch();
+    setHighlightedRuleId(existingRule.localId);
+    setRules((currentRules) =>
+      currentRules.filter((currentRule) => currentRule.localId !== draftRule.localId)
+    );
+    scrollRuleIntoView(existingRule.localId);
   }
 
   function addRule() {
@@ -533,7 +557,9 @@ export function IgHashtagsPage() {
           const saving = savingRuleIds.has(rule.localId);
           const deleting = deletingRuleIds.has(rule.localId);
           const unsavedDraft = !rule.persistedHashtag && dirty;
-          const highlighted = highlightedRuleId === rule.localId && dirty;
+          const highlighted = highlightedRuleId === rule.localId;
+          const duplicateRule = findDuplicateRule(rule, rules);
+          const hasDuplicate = Boolean(duplicateRule);
 
           return (
             <Card
@@ -547,8 +573,8 @@ export function IgHashtagsPage() {
             >
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="grid flex-1 gap-3 sm:max-w-xs">
-                  <label className="space-y-2 text-sm font-medium text-foreground">
-                    Hashtag
+                  <div className="space-y-2 text-sm font-medium text-foreground">
+                    <div>Hashtag</div>
                     <div className="relative">
                       <Hash className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                       <Input
@@ -559,7 +585,22 @@ export function IgHashtagsPage() {
                         onChange={(event) => updateRule(rule.localId, { hashtag: event.target.value })}
                       />
                     </div>
-                  </label>
+                    {duplicateRule ? (
+                      <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
+                        <div>
+                          #{normalizeHashtag(rule.hashtag)} already exists in this profile.
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="mt-2 h-7 px-2 text-xs text-amber-900 hover:bg-amber-100"
+                          onClick={() => showExistingRule(rule, duplicateRule)}
+                        >
+                          Show existing
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
@@ -576,7 +617,7 @@ export function IgHashtagsPage() {
                     type="button"
                     variant={dirty ? "default" : "secondary"}
                     className="gap-2"
-                    disabled={!canWriteSelectedTenant || loading || saving || deleting || !dirty}
+                    disabled={!canWriteSelectedTenant || loading || saving || deleting || !dirty || hasDuplicate}
                     onClick={() => void saveRule(rule, index)}
                   >
                     {saving ? (
